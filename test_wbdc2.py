@@ -37,11 +37,11 @@ def config():
   return observatory, telescope, front_end, receiver
                                      
 if __name__ == "__main__":
-  logging.basicConfig(level=logging.DEBUG)
+  logging.basicConfig(level=logging.INFO)
   #loggers = logs.set_module_loggers({"Electronics.Interfaces.LabJack": "debug",
   #                                   "MonitorControl.Receivers": "debug"})
   testlogger = logging.getLogger()
-  logs.init_logging(testlogger, loglevel=logging.DEBUG, consolevel=logging.DEBUG)
+  logs.init_logging(testlogger, loglevel=logging.DEBUG, consolevel=logging.WARNING)
 
   observatory, telescope, front_end, receiver = config()
   receiver.set_IF_mode(SB_separated=True)
