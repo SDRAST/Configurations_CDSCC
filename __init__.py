@@ -7,10 +7,10 @@ receivers.
 
 dict 'feed' contains all the feed names and positions
 """
-ttcrx = {34: {},
-         35: {},
-         43: {},
-         45: {}}
+cfg = {34: {},
+       35: {},
+       43: {},
+       45: {}}
 
 feeds = {34: {},
          35: {},
