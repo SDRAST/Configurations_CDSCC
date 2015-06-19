@@ -160,7 +160,7 @@ def find_BE_channels(roach):
   @param roach : Roach object
   @type  roach : Backend instance
 
-  @param spec : multi-level dictionary of BE_channel instances
+  @return: dict
   """
   spec = {}
   module_logger.debug("find_BE_channels: finding spec[%d]",roach.number)
