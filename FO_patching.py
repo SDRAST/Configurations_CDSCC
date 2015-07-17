@@ -1,5 +1,12 @@
 """
 Module to read F/O patching spreadsheet
+
+This depends on the spreadsheet having the following format::
+  Row  1 - Column name
+  Row  2 - Selected patch; all blank except for the cell of the selected patch
+  Row  3 - Band 18, Feed 1, Pol E, IF L
+  ...
+  Row 42 - Band 26, Feed 2, Pol H, IF U
 """
 import logging
 from openpyxl import load_workbook
@@ -8,8 +15,8 @@ from support.excel import *
 
 module_logger = logging.getLogger(__name__)
 
-repo_path = "/usr/local/lib/python2.7/DSN-Sci-packages"
-modulepath = repo_path+"/MonitorControl/Configurations/CDSCC/"
+repo_path = "/usr/local/lib/python2.7/DSN-Sci-packages/"
+modulepath = repo_path+"MonitorControl/Configurations/CDSCC/"
 paramfile = "FO_patching.xlsx"
 
 label_map = {"E": 1, "H": 2, "L": 1, "U": 2}
@@ -50,11 +57,13 @@ class DistributionAssembly(object):
                         exc_info=True)
       raise AttributeError
     self.sheet_names = self.workbook.get_sheet_names()
+    self.sheet_names.sort()
     self.logger.debug("_open_patchpanel_spreadsheet: sheet names: %s",
                       str(self.sheet_names))
-    self.worksheet = self.workbook.get_sheet_by_name('Patches')
+    self.worksheet = self.workbook.get_sheet_by_name(self.sheet_names[-1])
     column_names = get_column_names(self.worksheet)
-    self.logger.debug("_open_patchpanel_spreadsheet: columns found:")
+    self.logger.debug("_open_patchpanel_spreadsheet: columns found in %s:",
+                      self.sheet_names[-1])
     for name in column_names.keys():
       if column_names[name]:
         self.logger.debug("_open_patchpanel_spreadsheet: %s: %s",
@@ -66,16 +75,26 @@ class DistributionAssembly(object):
 
   def current_patch(self):
     """
+    Find the patching currently in effect.
+    
+    If no patching is currently known, it steps through columns E through I of 
+    row 2 (index 1) until it finds a non-empty cell.
     """
     self.patchname = None
-    for column in range(4,9):
+    for column in range(5,10):
+      self.logger.debug("current_patch: checking column %d", column)
       if self.worksheet.cell(row=1, column=column).value:
+        self.logger.debug("current_patch: found %s", 
+                          self.worksheet.cell(row=1, column=column).value)
         if self.patchname:
           self.logger.error("current_patch: ambiguity: %s or %s",
              self.patchname, self.worksheet.cell(row=1, column=column).value)
           raise RuntimeException("patch ambiguity")
         else:
           self.patchname = self.worksheet.cell(row=0,column=column).value
+          break
+      else:
+        pass
     return self.patchname
 
   def get(self, column_name, row):
@@ -115,3 +134,27 @@ class DistributionAssembly(object):
                      +"P"+str(label_map[str(rx_chan["Pol"])])\
                      +"IF"+str(label_map[str(rx_chan["IF"])])
     return IF_report
+
+  def get_inputs(self, device):
+    """
+    """
+    if device != "Radiometer" and device != "Power Meter":
+      self.logger.error("get_inputs: device %s is not known", device)
+      raise RuntimeError("device %s is not known; check capitalization." % device)
+    inputs = get_column(self.worksheet, device)[1:]
+    self.logger.debug("get_inputs: Column '%s' values: %s", device, inputs)
+    sig_props = {}
+    for index in range(len(inputs)):
+      # row 2 is labelled 3 in the spreadsheet (for openpyxl 1.x)
+      row = index+2
+      channel_ID = inputs[index]
+      self.logger.debug("get_inputs: row %d input is %s", row, channel_ID)
+      if inputs[index]:
+        sig_props[channel_ID] = {}
+        for item in ["Band", "Feed", "Pol", "IF"]:
+          value= self.get(item, row)
+          if value == None:
+            self.logger.error("get_patching: no %s for row %d", item, row)
+          else:
+            sig_props[channel_ID][item] = value
+    return sig_props
