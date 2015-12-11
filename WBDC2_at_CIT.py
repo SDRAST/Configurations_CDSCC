@@ -7,7 +7,7 @@ from MonitorControl.Receivers.WBDC.WBDC2 import WBDC2
 import logging
 module_logger = logging.getLogger(__name__)
 
-def station_configuration(roach_loglevel=logging.WARNING):
+def station_configuration(equipment, roach_loglevel=logging.WARNING):
   """
   Configuration for the K-band system on DSS-43 using WBDC2
 
