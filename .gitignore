@@ -1,6 +1,9 @@
 # No backup files
 *~
 
+# No logs
+*log
+
 # Only Python source
 *.py[cod]
 
