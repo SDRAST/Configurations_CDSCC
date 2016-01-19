@@ -4,9 +4,9 @@ Module to read F/O patching spreadsheet
 This depends on the spreadsheet having the following format::
   Row  1 - Column name
   Row  2 - Selected patch; all blank except for the cell of the selected patch
-  Row  3 - Band 18, Feed 1, Pol E, IF L
+  Row  3 - Band 18, Receiver 1, Pol E, IF L
   ...
-  Row 42 - Band 26, Feed 2, Pol H, IF U
+  Row 42 - Band 26, Receiver 2, Pol H, IF U
 """
 import logging
 from openpyxl import load_workbook
@@ -32,6 +32,7 @@ class DistributionAssembly(object):
     self.paramfile = paramfile
     self.logger = logging.getLogger(module_logger.name+".DistributionAssembly")
     self._open_patchpanel_spreadsheet()
+    self.patching = self.get_patching()
 
   def _open_patchpanel_spreadsheet(self):
     """
@@ -111,12 +112,14 @@ class DistributionAssembly(object):
     return None
   
   def get_patching(self):
+    """
+    """
     IF_channel = {}
     for IF in range(1,17):
       rx_chan = {}
       row = get_row_number(self.worksheet, self.column, IF)
       self.logger.debug("get_patching: IF %d is in row %d", IF, row)
-      for item in ["Band", "Feed", "Pol", "IF"]:
+      for item in ["Band", "Receiver", "Pol", "IF"]:
         value= self.get(item, row)
         if value == None:
           self.logger.error("get_patching: no %s for row %d", item, row)
@@ -126,35 +129,62 @@ class DistributionAssembly(object):
     return IF_channel
 
   def report_patching(self):
-    self.patching = self.get_patching()
     IF_report = {}
     for IF in self.patching.keys():
       rx_chan = self.patching[IF]
-      IF_report[IF] = "R"+str(rx_chan["Feed"])+"-"+str(rx_chan["Band"])\
-                     +"P"+str(label_map[str(rx_chan["Pol"])])\
-                     +"IF"+str(label_map[str(rx_chan["IF"])])
+      IF_report[IF] = "R"+str(rx_chan["Receiver"]) \
+                     +"-"+str(rx_chan["Band"]) \
+                     +"-"+str(rx_chan["Pol"]) \
+                     +"-IF"+str(label_map[str(rx_chan["IF"])])
     return IF_report
 
+  def get_signals(self, device):
+    """
+    """
+    try:
+      inputs = get_column(self.worksheet, device)[1:]
+    except TypeError:
+      self.logger.error("get_signals: device %s is not known", device)
+      raise RuntimeError("device %s is not known; check capitalization." % device)
+    inputs = get_column(self.worksheet, device)[1:]
+    self.logger.debug("get_signals: Column '%s' values: %s", device, inputs)
+    sig_props = {}
+    for index in range(len(inputs)):
+      # row 2 is labelled 3 in the spreadsheet (for openpyxl 1.x)
+      row = index+2
+      channel_ID = inputs[index]
+      self.logger.debug("get_signals: row %d input is %s", row, channel_ID)
+      if inputs[index]:
+        sig_props[channel_ID] = {}
+        for item in ["Band", "Receiver", "Pol", "IF"]:
+          value= self.get(item, row)
+          if value == None:
+            self.logger.error("get_signals: no %s for row %d", item, row)
+          else:
+            sig_props[channel_ID][item] = value
+    return sig_props
+  
   def get_inputs(self, device):
     """
     """
-    if device != "Radiometer" and device != "Power Meter":
+    try:
+      inputs = get_column(self.worksheet, device)[1:]
+    except TypeError:
       self.logger.error("get_inputs: device %s is not known", device)
       raise RuntimeError("device %s is not known; check capitalization." % device)
     inputs = get_column(self.worksheet, device)[1:]
     self.logger.debug("get_inputs: Column '%s' values: %s", device, inputs)
-    sig_props = {}
+    channels = {}
     for index in range(len(inputs)):
       # row 2 is labelled 3 in the spreadsheet (for openpyxl 1.x)
       row = index+2
       channel_ID = inputs[index]
       self.logger.debug("get_inputs: row %d input is %s", row, channel_ID)
       if inputs[index]:
-        sig_props[channel_ID] = {}
-        for item in ["Band", "Feed", "Pol", "IF"]:
-          value= self.get(item, row)
-          if value == None:
-            self.logger.error("get_patching: no %s for row %d", item, row)
-          else:
-            sig_props[channel_ID][item] = value
-    return sig_props
+        channels[channel_ID] = {}
+        channels[channel_ID]['RF'] = 'R'+str(self.get('Receiver',row)) \
+                                    +'-'+str(self.get('Band',row)) \
+                                    +'-'+str(self.get('Pol',row))
+        channels[channel_ID]['IF'] = self.get('IF',row)
+    return channels
+  
