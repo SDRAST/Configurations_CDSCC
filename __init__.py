@@ -6,6 +6,10 @@ polarization channels of DSN telemetry, tracking and control
 receivers.
 
 dict 'feed' contains all the feed names and positions
+
+References
+==========
+http://deepspace.jpl.nasa.gov/dsndocs/810-005/302/302C.pdf
 """
 cfg = {34: {},
        35: {},
@@ -30,3 +34,8 @@ feeds = {34: {},
               'K2C': 339.029,  # 4-ch K-band clockwise feed
               'F2':  339.029},
          45: {}}
+
+
+wrap = {14: {'stow_az': 180},
+            {'wrap':    {'center':135,
+                         'range': 265}}}
