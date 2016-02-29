@@ -11,6 +11,10 @@ References
 ==========
 http://deepspace.jpl.nasa.gov/dsndocs/810-005/302/302C.pdf
 """
+import logging
+
+logger = logging.getLogger(__name__)
+
 cfg = {34: {},
        35: {},
        43: {},
@@ -35,7 +39,9 @@ feeds = {34: {},
               'F2':  339.029},
          45: {}}
 
+mech = {43:{'diam': 70,
+            'type': 'cas'}}
 
-wrap = {14: {'stow_az': 180},
-            {'wrap':    {'center':135,
-                         'range': 265}}}
+wrap = {43: {'stow_az': 17,
+             'wrap':    {'center':135}}}
+
