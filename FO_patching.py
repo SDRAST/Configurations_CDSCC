@@ -184,7 +184,7 @@ class DistributionAssembly(object):
         channels[channel_ID] = {}
         channels[channel_ID]['RF'] = 'R'+str(self.get('Receiver',row)) \
                                     +'-'+str(self.get('Band',row)) \
-                                    +'-'+str(self.get('Pol',row))
+                                    +str(self.get('Pol',row))
         channels[channel_ID]['IF'] = self.get('IF',row)
     return channels
   
