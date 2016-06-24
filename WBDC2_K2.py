@@ -50,7 +50,6 @@ class IFswitch(Device):
       self.outputs[name].source = self.inputs[innames[index]]
       self.outputs[name].signal = copy.copy(self.outputs[name].source.signal)
     
-  
   def _make_input_name(self, RF, IF):
     """
     """
@@ -75,14 +74,14 @@ def station_configuration(equipment, roach_loglevel=logging.WARNING):
   observatory = Observatory("Canberra")
   equipment['Telescope'] = Telescope(observatory, dss=43)
   telescope = equipment['Telescope']
-  equipment['FrontEnd'] = ClassInstance(FrontEnd, K_4ch, "K", hardware=True,
+  equipment['FrontEnd'] = ClassInstance(FrontEnd, K_4ch, "K", hardware=False,
                            inputs = {'KF1': telescope.outputs[telescope.name],
                                      'KF2': telescope.outputs[telescope.name]},
                            output_names = [['F1P1','F1P2'],
                                            ['F2P1','F2P2']])
   front_end = equipment['FrontEnd']
   equipment['Receiver'] = ClassInstance(Receiver, WBDC2, "WBDC-2",
-                                        hardware=True,
+                                        hardware=False,
                                   inputs = {'F1P1': front_end.outputs["F1P1"],
                                             'F1P2': front_end.outputs["F1P2"],
                                             'F2P1': front_end.outputs["F2P1"],
@@ -90,9 +89,11 @@ def station_configuration(equipment, roach_loglevel=logging.WARNING):
   equipment['IF_switch'] = IFswitch("Patch Panel", equipment)
   patch_panel = equipment['IF_switch']
   equipment['Backend'] = ClassInstance(Backend, SAOspec, "SAO spectrometer",
+                                       hardware = True,
                                 inputs = {'SAO1': patch_panel.outputs['SAO1'],
-                                          'SAO2': patch_panel.outputs['SAO2'],
-                                          'SAO3': patch_panel.outputs['SAO3'],
-                                          'SAO4': patch_panel.outputs['SAO4']})
+                                          'SAO2': patch_panel.outputs['SAO2']})
+  # for testing with dto
+  #                                        'SAO3': patch_panel.outputs['SAO3'],
+  #                                        'SAO4': patch_panel.outputs['SAO4']})
   equipment['sampling_clock'] = None
   return observatory, equipment
