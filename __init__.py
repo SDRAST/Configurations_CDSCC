@@ -45,3 +45,13 @@ mech = {43:{'diam': 70,
 wrap = {43: {'stow_az': 17,
              'wrap':    {'center':135}}}
 
+def gain43(elev):
+  """
+  Reference: report attached to e-mail from Shinji 05/24/2015 07:26 AM filed
+  in Canberra/Calibration
+  """
+  a = -0.000988569
+  b = 42.5931
+  c =  1.78419
+  return a*(elev-b)**2 + c
+
