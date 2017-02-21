@@ -17,8 +17,8 @@ logger = logging.getLogger(__name__)
 
 cfg = {34: {},
        35: {},
-       43: {},
-       45: {}}
+       36: {},
+       43: {}}
 
 feeds = {34: {},
          35: {},
