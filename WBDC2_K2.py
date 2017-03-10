@@ -89,11 +89,10 @@ def station_configuration(equipment, roach_loglevel=logging.WARNING):
   equipment['IF_switch'] = IFswitch("Patch Panel", equipment)
   patch_panel = equipment['IF_switch']
   equipment['Backend'] = ClassInstance(Backend, SAOspec, "SAO spectrometer",
-                                       hardware = True,
+                                       hardware = False,
                                 inputs = {'SAO1': patch_panel.outputs['SAO1'],
-                                          'SAO2': patch_panel.outputs['SAO2']})
-  # for testing with dto
-  #                                        'SAO3': patch_panel.outputs['SAO3'],
-  #                                        'SAO4': patch_panel.outputs['SAO4']})
+                                          'SAO2': patch_panel.outputs['SAO2'],
+                                          'SAO3': patch_panel.outputs['SAO3'],
+                                          'SAO4': patch_panel.outputs['SAO4']})
   equipment['sampling_clock'] = None
   return observatory, equipment
