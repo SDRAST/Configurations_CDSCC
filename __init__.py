@@ -1,7 +1,7 @@
 """
 Configuration information for CDSCC
 
-dict 'ttcrx' is a structure which contains all the receivers and
+dict 'cfg' is a structure which contains all the receivers and
 polarization channels of DSN telemetry, tracking and control
 receivers.
 
@@ -15,13 +15,22 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-cfg = {34: {},
-       35: {},
-       36: {},
-       43: {}}
+cfg = {43: {'S' :{'R':0,'L':0},
+            'X' :{'R':0,'L':0}},
+       45: {'S' :{'R':0},
+            'X' :{'R':0}},
+       34: {'S' :{'R':0},
+            'X' :{'R':0},
+            'Ka':{'R':0}},
+       35: {'X' :{'R':0},
+            'Ka':{'R':0}},
+       36: {'S' :{'R':0},
+            'X' :{'R':0},
+            'Ka':{'R':0}}}
 
 feeds = {34: {},
          35: {},
+         36: {},
          43: {'P1': 0,
               'Ku': 9.2,
               'K1': 24,        # 3-ch K-band
@@ -40,10 +49,28 @@ feeds = {34: {},
          45: {}}
 
 mech = {43:{'diam': 70,
-            'type': 'cas'}}
+            'type': 'cas'},
+        45:{'diam': 34,
+            'type': 'HEF'},
+        34:{'diam': 34,
+            'type': 'BWG'},
+        35:{'diam': 34,
+            'type': 'BWG'},
+        36:{'diam': 34,
+            'type': 'BWG'}}
 
 wrap = {43: {'stow_az': 17,
-             'wrap':    {'center':135}}}
+             'wrap':    {'center': 135}},
+        45: {'stow_az': 0,
+            'wrap':     {'center':  45}},
+        34: {'stow_az': 0,
+             'wrap':    {'center':  45}},
+        35: {'stow_az': 0,
+             'wrap':    {'center':  45}},
+        36: {'stow_az': 0,
+             'wrap':    {'center':  45}}}
+
+
 
 def gain43(elev):
   """
