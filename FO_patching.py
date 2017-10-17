@@ -140,6 +140,13 @@ class DistributionAssembly(object):
 
   def get_signals(self, device):
     """
+    Returns the signals into the specified device.
+    
+    Currently known devices::
+      'Power Meter' - (four) Hewlett Packard power meters
+      'Radiometer'  - eight-head Date! power meter assembly
+      'ROACH1'      - SAO spectrometer
+      'ROACH2'      - GCPS spectrometer
     """
     try:
       inputs = get_column(self.worksheet, device)[1:]
