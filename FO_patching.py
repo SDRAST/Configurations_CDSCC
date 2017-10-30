@@ -11,6 +11,9 @@ This depends on the spreadsheet having the following format::
 import logging
 from openpyxl import load_workbook
 from openpyxl.reader.excel import InvalidFileException
+
+import DatesTimes as DT
+
 from support.excel import *
 
 module_logger = logging.getLogger(__name__)
@@ -23,6 +26,14 @@ label_map = {"E": 1, "H": 2, "L": 1, "U": 2}
 
 class DistributionAssembly(object):
   """
+  Public Attributes::
+    logger      - logging.Logger instance
+    paramfile   - name of CDSCC K-band patch panel spreadsheet
+    parampath   - path to CDSCC configuration directory
+    patching    - current IF patching dict
+    patchname   - column title of current patching
+    sheet_names - sorted names of sheets in patch panel spreadsheet (dates)
+    workbook    - openpyxl.workbook.Workbook instance
   """
   def __init__(self, parampath=modulepath, paramfile=paramfile):
     """
@@ -111,8 +122,44 @@ class DistributionAssembly(object):
         row -= 1
     return None
   
-  def get_patching(self):
+  def get_sheet_by_date(self, obsdate=None):
     """
+    """
+    if obsdate:
+      if '/' in obsdate:
+        parts = obsdate.split("/")
+      elif '-' in obsdate:
+        parts = obsdate.split("-")
+      else:
+        raise RuntimeWarning("get_sheet_by_date: date %s not recognized")
+        return None
+      year = parts[0]
+      if len(parts) == 2:
+        doy = parts[1]
+      elif len(parts) == 3:
+        doy = '%03d' % DT.day_of_year(int(parts[0]),
+                                      int(parts[1]), int(parts[2]))
+      for name in self.sheet_names:
+        patchyear, patchdoy = name.split('-')
+        if year != patchyear:
+          continue
+        if int(doy) > int(patchdoy):
+          # try the next one
+          sheetfound = name
+        elif int(doy) < int(patchdoy):
+          # passed the desired sheet
+          self.worksheet = self.workbook.get_sheet_by_name(name)
+          return name
+      # end name loop; none found
+    # none found or no date given
+    self.worksheet = self.workbook.get_sheet_by_name(self.sheet_names[-1])
+    return self.sheet_names[-1]
+    
+  def get_patching(self, obsdate=None):
+    """
+    Returns patching on the current or given date
+    
+    @param obsdate - "YYYY/DDD" or "YYYY/MM/DD"
     """
     IF_channel = {}
     for IF in range(1,17):
