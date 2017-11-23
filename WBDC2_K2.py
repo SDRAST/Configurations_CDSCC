@@ -75,8 +75,8 @@ def station_configuration(equipment, roach_loglevel=logging.WARNING):
   equipment['Telescope'] = Telescope(observatory, dss=43)
   telescope = equipment['Telescope']
   equipment['FrontEnd'] = ClassInstance(FrontEnd, K_4ch, "K", hardware=False,
-                           inputs = {'KF1': telescope.outputs[telescope.name],
-                                     'KF2': telescope.outputs[telescope.name]},
+                           inputs = {'F1': telescope.outputs[telescope.name],
+                                     'F2': telescope.outputs[telescope.name]},
                            output_names = [['F1P1','F1P2'],
                                            ['F2P1','F2P2']])
   front_end = equipment['FrontEnd']
