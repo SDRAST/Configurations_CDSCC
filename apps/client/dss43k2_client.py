@@ -1,4 +1,7 @@
+import logging
+import time
 import threading
+import inspect
 
 import Pyro4
 
@@ -7,6 +10,8 @@ from support.pyro import Pyro4Client, config
 from ..server.dss43k2_server import DSS43K2Server
 
 __all__ = ["DSS43K2Client"]
+
+module_logger = logging.getLogger(__name__)
 
 class populate_client(object):
     """
@@ -17,18 +22,24 @@ class populate_client(object):
         self.server_cls = DSS43K2Server
 
     def __call__(self, cls):
-        def callback_factory(callback_name):
+
+        def callback_factory(cb_name):
             """
             Factory functions for callbacks.
             """
             def callback(self, updates_or_results):
-                getattr(self.callback_name).ready = True
-                getattr(self.callback_name).data = updates_or_results
+                callback.ready = True
+                callback.data = updates_or_results
+                if callback.then is not None:
+                    callback.then(updates_or_results)
+
             callback.ready = False
             callback.data = None
+            callback.then = None
+
             return callback
 
-        def method_factory(name, cb_name, cb_updates_name=None):
+        def method_factory(method_name, cb_name, cb_updates_name=None):
             """
             Factory function for client methods. Registered callbacks will get
             passed as arguments to the appropriate
@@ -39,11 +50,17 @@ class populate_client(object):
                     "cb":cb_name,
                     "cb_updates": cb_updates_name
                 }
-                getattr(self.server)(*args, **kwargs)
-
+                cb_then = kwargs.pop("then", None)
+                # self.logger.debug("{}: then: {}".format(method_name, cb_then))
+                # self.logger.debug("{}: Called.".format(method_name))
+                getattr(self.server, method_name)(*args, **kwargs)
                 # now wait for callback
+                cb = getattr(self, cb_name)
                 with self.lock:
-                    cb_ready = getattr(self, cb_name).ready
+                    cb_ready = cb.ready
+                    cb.__dict__["then"] = cb_then
+                self.logger.debug("ready status for callback {}: {}".format(cb_name, cb_ready))
+                self.logger.debug("callback then: {}".format(cb.then))
                 while not cb_ready:
                     with self.lock:
                         cb_ready = getattr(self, cb_name).ready
@@ -54,17 +71,21 @@ class populate_client(object):
 
             return method
 
-
         for method_name in dir(self.server_cls):
             method = getattr(self.server_cls, method_name)
-            if isinstance(method, Pyro4.core._RemoteMethod) and method._async_method:
-                callback_name = "{}_cb".format(method_name)
-                callback = callback_factory(callback_name)
-                setattr(cls, callback_name, config.expose(callback))
-
-                client_method = method_factory(method_name)
-                setattr(cls, callback_name, client_method)
-
+            try:
+                if method._async_method:
+                    # print("Creating synchronous analog for method {}".format(method_name))
+                    callback_name = "{}_cb".format(method_name)
+                    callback = config.expose(callback_factory(callback_name))
+                    # callback = config.expose(callback(callback_name))
+                    setattr(cls, callback_name, callback)
+                    client_method = method_factory(method_name, callback_name)
+                    setattr(cls, method_name, client_method)
+                else:
+                    pass
+            except AttributeError:
+                pass
         return cls
 
 @populate_client(server_cls=DSS43K2Server)
@@ -77,7 +98,7 @@ class DSS43K2Client(Pyro4Client):
 
         Pyro4Client.__init__(self, tunnel, proxy_name,
             use_autoconnect=use_autoconnect, logger=logger)
-
+        self.daemon = None
         if daemon:
             self.daemon = daemon
             host, port = self.daemon.locationStr.split(":")
@@ -91,9 +112,19 @@ class DSS43K2Client(Pyro4Client):
                     self.logger.debug("Port {} already in use. Attempting to register callback handler on a higher port number.".format(port))
                     port += 1
                 register_attempts += 1
+
+        if self.daemon is None:
+            err_msg = "Couldn't create Daemon"
+            self.logger.error(err_msg)
+            raise RuntimeError(err_msg)
+        self.daemon_thread = threading.Thread(target=self.daemon.requestLoop)
+        self.daemon_thread.daemon = True
+        self.daemon_thread.start()
+
         uri = self.daemon.register(self, objectId=objectId)
         self.logger.info("DSS43K2Client registered with uri {}".format(uri))
         self.tunnel.register_remote_daemon(self.daemon)
+        # self.server.set_callback_handler(uri)
         self.handler_host = host
         self.handler_port = port
         self.handler_objectId = objectId

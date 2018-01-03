@@ -141,7 +141,7 @@ class DSS43K2Server(Pyro4Server):
             self._spec = SpectrometerServer(simulated=self._simulated, synth=None, logfile=self.logfile)
             self._wbdc_fe = WBDCFrontEndServer(simulated=self._simulated,
                                                logfile=self.logfile,
-                                               patching_file_path=parampath,
+                                            #    patching_file_path=parampath,
                                                settings_file="/home/dean/jpl-dsn/.WBDCFrontEndsettings.json")
             self._hppm = None
             self._rad = None
@@ -1908,8 +1908,13 @@ class DSS43K2Server(Pyro4Server):
     @async_method
     def get_azel(self):
         """Call APC get_azel asynchronously"""
+        # self.logger.debug("get_azel: Called.")
         results = self.apc.get_azel()
+        # self.logger.debug("get_azel: azel: {}".format(results))
+        # self.logger.debug(self.get_azel.cb)
         self.get_azel.cb(results)
+        self.logger.debug("get_azel: Cb called.")
+
 
     @Pyro4.oneway
     @async_method
