@@ -25,13 +25,13 @@ class TestDSS43K2Client(unittest.TestCase):
 
     def setUp(self):
         if not self.__class__.isSetup:
-            port = 9090
+            host, port = "localhost", 9090
             server_logger = logging.getLogger("TestDSS43Server")
             server_logger.setLevel(logging.DEBUG)
             client_logger = logging.getLogger("TestDSS43Client")
-            server = DSS43K2Server(logger=server_logger)
-            server_thread = server.launch_server(ns_port=port, local=True, threaded=True)
-            tunnel = pyro4tunneling.Pyro4Tunnel(ns_port=port, local=True)
+            server = DSS43K2Server(ns_port=port, ns_host=host, logger=server_logger, simulated=True)
+            server_thread = server.launch_server(ns_host=host, ns_port=port, local=True, threaded=True)
+            tunnel = pyro4tunneling.Pyro4Tunnel(ns_host=host, ns_port=port, local=True)
             self.__class__.client = DSS43Client(tunnel, server.name, port=port, logger=client_logger)
             self.__class__.isSetup = True
         else:
@@ -52,7 +52,7 @@ if __name__ == "__main__":
 
     suite_basic = unittest.TestSuite()
     # suite_advanced = unittest.TestSuite()
-    suite_basic.addTest(TestDSS43K2Boresight("test_get_azel"))
+    suite_basic.addTest(TestDSS43K2Client("test_get_azel"))
     # suite_basic.addTest(TestDSS43K2Boresight("test_pm_integrator_all"))
     # suite_basic.addTest(TestDSS43K2Boresight("test_grab_pm_data"))
     # suite_basic.addTest(TestDSS43K2Boresight("test_calc_bs_points"))

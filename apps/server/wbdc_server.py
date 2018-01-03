@@ -11,12 +11,9 @@ import os
 import Pyro4
 
 from support.threading_util import PausableThread, iterativeRun
-try:
-    from support.pyro import Pyro4Server, get_device_server, Pyro4ServerError
-except ImportError as err:
-    from pyro_support import Pyro4Server
+from support.pyro import Pyro4Server, get_device_server, Pyro4ServerError, config
+from support.test import auto_test
 from MonitorControl.Configurations.CDSCC import FO_patching
-from DSS43Backend.automation import AutoTestAnnotation
 
 Pyro4.config.COMMTIMEOUT = 0.0
 
@@ -62,7 +59,7 @@ class ParserDecorator(object):
         self.str_corr = str_correspondance
         self.opt_corr = opt_correspondance
         self.mode = mode
-        self.annotation_obj = AutoTestAnnotation(args=(self.str_corr[0], ), returns=returns)
+        self.annotation_obj = auto_test(args=(self.str_corr[0], ), returns=returns)
 
     def __call__(self, f):
 
@@ -121,7 +118,7 @@ def error_decorator(fn):
     return wrapper
 
 
-@Pyro4.expose
+@config.expose
 class WBDCFrontEndServer(Pyro4Server):
     """
     A class for integrating FrontEnd and WBDC control.
@@ -503,7 +500,7 @@ class WBDCFrontEndServer(Pyro4Server):
         noise_diode_state = summary['noise_diode_state']  # just bool value
         self.set_noise_diode_state(noise_diode_state)
 
-    @AutoTestAnnotation()
+    @auto_test()
     def get_pm_patching_sources(self):
         """
         report which receiver outputs feed the power meters
@@ -512,7 +509,7 @@ class WBDCFrontEndServer(Pyro4Server):
         self.serverlog.debug("get_pm_patching_sources: pm_inputs: {}".format(pm_inputs))
         return pm_inputs
 
-    @AutoTestAnnotation()
+    @auto_test()
     def get_pm_atten_names(self, pm_patching_inputs=None):
         """
         Args:
@@ -532,7 +529,7 @@ class WBDCFrontEndServer(Pyro4Server):
         self.serverlog.debug("get_pm_atten_names: PM attenuator names: {}".format(att))
         return att
 
-    @AutoTestAnnotation()
+    @auto_test()
     def get_atten_names(self):
         """
         Get the names of all the attenuators
@@ -542,7 +539,7 @@ class WBDCFrontEndServer(Pyro4Server):
         else:
             return self.simulated_atten.keys()
 
-    @AutoTestAnnotation(args=('R1-24-E', ))
+    @auto_test(args=('R1-24-E', ))
     def get_atten(self, atten_name):
         """
         Get PIN diode attenuator for specific IF channel
@@ -555,7 +552,7 @@ class WBDCFrontEndServer(Pyro4Server):
         else:
             return self.simulated_atten[atten_name][0]
 
-    @AutoTestAnnotation()
+    @auto_test()
     def get_attens(self):
         """
         Get the attenuator values for ALL the attenuators, including ones that are
@@ -571,7 +568,7 @@ class WBDCFrontEndServer(Pyro4Server):
         else:
             return self.simulated_atten.copy()
 
-    @AutoTestAnnotation()
+    @auto_test()
     def get_pm_attens(self):
         """
         Get the attenuator values associated with the power meters heads.
@@ -587,7 +584,7 @@ class WBDCFrontEndServer(Pyro4Server):
                 report[name] = self.simulated_atten[atten_name]
         return report
 
-    @AutoTestAnnotation()
+    @auto_test()
     def get_atten_volts(self):
         """
         Get the voltages associated with each attenuator.
@@ -606,7 +603,7 @@ class WBDCFrontEndServer(Pyro4Server):
         self.serverlog.debug("get_atten_volts: Volts: {}".format(report))
         return report
 
-    @AutoTestAnnotation()
+    @auto_test()
     def get_pm_atten_volts(self):
         """
         Get the voltages associated with only power meter attenuators
@@ -625,7 +622,7 @@ class WBDCFrontEndServer(Pyro4Server):
         self.serverlog.debug("get_pm_atten_volts: Volts: {}".format(report))
         return report
 
-    @AutoTestAnnotation(args=('R1-24-E', 5.0))
+    @auto_test(args=('R1-24-E', 5.0))
     @error_decorator
     def set_atten(self, atten_name, value):
         """
@@ -646,7 +643,7 @@ class WBDCFrontEndServer(Pyro4Server):
         else:
             self.serverlog.debug("set_atten: Can't set value None for attenuator {}".format(atten_name))
 
-    @AutoTestAnnotation(args=(1, 5.0))
+    @auto_test(args=(1, 5.0))
     @error_decorator
     def set_pm_atten(self, atten_id, value):
         """
@@ -668,7 +665,7 @@ class WBDCFrontEndServer(Pyro4Server):
         self.serverlog.debug("set_pm_atten: setting {} to {:.2f}".format(att, value))
         self.set_atten(att, value)
 
-    @AutoTestAnnotation(args=([5.0, 5.0, 5.0, 5.0], ))
+    @auto_test(args=([5.0, 5.0, 5.0, 5.0], ))
     @error_decorator
     def set_pm_attens(self, vals):
         """
@@ -681,7 +678,7 @@ class WBDCFrontEndServer(Pyro4Server):
         for i in xrange(1,5):
             self.set_pm_atten(i, vals[i-1])
 
-    @AutoTestAnnotation()
+    @auto_test()
     def init_pms(self):
         """
         Initializes the Hewlett Packard (Agilent) power meters
@@ -692,7 +689,7 @@ class WBDCFrontEndServer(Pyro4Server):
         else:
             self.serverlog.debug("init_pms: Called")
 
-    @AutoTestAnnotation()
+    @auto_test()
     def read_pms(self):
         """
         The power meters are read in the order 1, 2, 3, 4.  The corresponding
@@ -711,7 +708,7 @@ class WBDCFrontEndServer(Pyro4Server):
                 readings.append((i, datetime.datetime.utcnow().isoformat(), random.random()))
             return readings
 
-    @AutoTestAnnotation()
+    @auto_test()
     def get_tsys_factors(self):
         """
         Get the tsys factors that allow for conversion between raw power meter output
@@ -724,7 +721,7 @@ class WBDCFrontEndServer(Pyro4Server):
                 'PM3': self.tsysfactor3,
                 'PM4': self.tsysfactor4}
 
-    @AutoTestAnnotation()
+    @auto_test()
     def get_tsys(self):
         """
         Get the tsys given the current tsysfactors.
@@ -743,7 +740,7 @@ class WBDCFrontEndServer(Pyro4Server):
         return {'tsys':tsys,
                 'pm_readings':pm_readings}
 
-    @AutoTestAnnotation()
+    @auto_test()
     def read_temp(self):
         """Read Front end rx temp"""
         if not self._simulated:
@@ -752,7 +749,7 @@ class WBDCFrontEndServer(Pyro4Server):
         else:
             return None
 
-    @AutoTestAnnotation()
+    @auto_test()
     @error_decorator
     def get_feed_state(self):
         """
@@ -768,7 +765,7 @@ class WBDCFrontEndServer(Pyro4Server):
         else:
             return [self.simulated_feed_state[1], self.simulated_feed_state[2]]
 
-    @AutoTestAnnotation(args=(1, 'sky'))
+    @auto_test(args=(1, 'sky'))
     def set_feed_state(self, feed, state):
         """
         Args:
@@ -815,7 +812,7 @@ class WBDCFrontEndServer(Pyro4Server):
             self.serverlog.error("Simulator doesn't have Y-factor")
             return None
 
-    @AutoTestAnnotation()
+    @auto_test()
     @error_decorator
     def get_noise_diode_state(self):
         """
@@ -832,7 +829,7 @@ class WBDCFrontEndServer(Pyro4Server):
         else:
             return self.simulated_noise_diode_state
 
-    @AutoTestAnnotation(args=(False, ))
+    @auto_test(args=(False, ))
     @error_decorator
     def set_noise_diode_state(self, state):
         """
@@ -851,7 +848,7 @@ class WBDCFrontEndServer(Pyro4Server):
         else:
             self.simulated_noise_diode_state = state
 
-    @AutoTestAnnotation(args=(1, True))
+    @auto_test(args=(1, True))
     @error_decorator
     def set_preamp_bias(self, feed, state):
         """
@@ -877,7 +874,7 @@ class WBDCFrontEndServer(Pyro4Server):
         else:
             self.simulated_preamp_bias[feed] = state
 
-    @AutoTestAnnotation()
+    @auto_test()
     @error_decorator
     def get_front_end_temp(self):
         """
@@ -896,7 +893,7 @@ class WBDCFrontEndServer(Pyro4Server):
                 '70K':random.random()
             }
 
-    @AutoTestAnnotation()
+    @auto_test()
     @error_decorator
     def get_analog_data(self):
         """
@@ -918,7 +915,7 @@ class WBDCFrontEndServer(Pyro4Server):
                     'R1 E-plane': random.random(), 'R1 H-plane': random.random(), 'R1 RF plate': random.random(),
                     'R2 E-plane': random.random(), 'R2 H-plane': random.random(), 'R2 RF plate': random.random()}
 
-    @AutoTestAnnotation()
+    @auto_test()
     @error_decorator
     def get_crossover_switch(self):
         """
@@ -934,7 +931,7 @@ class WBDCFrontEndServer(Pyro4Server):
         else:
             return self.simulated_crossover_switch_state
 
-    @AutoTestAnnotation(args=(False, ))
+    @auto_test(args=(False, ))
     @error_decorator
     def set_crossover_switch(self, state):
         """
@@ -953,7 +950,7 @@ class WBDCFrontEndServer(Pyro4Server):
         else:
             self.simulated_crossover_switch_state[1] = state
 
-    @AutoTestAnnotation()
+    @auto_test()
     @error_decorator
     def get_polarizers(self):
         """
@@ -1002,7 +999,7 @@ class WBDCFrontEndServer(Pyro4Server):
             return {'R1-18': val, 'R1-20': val, 'R1-22': val, 'R1-24': val, 'R1-26': val,
                     'R2-18': val, 'R2-20': val, 'R2-22': val, 'R2-24': val, 'R2-26': val}
 
-    @AutoTestAnnotation()
+    @auto_test()
     @error_decorator
     def get_IF_hybrids(self):
         """

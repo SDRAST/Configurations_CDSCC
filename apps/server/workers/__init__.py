@@ -5,7 +5,7 @@ import time
 
 import Pyro4
 
-from pyro_support import async_method
+from support.pyro import async_method
 from support.threading_util import PausableThread, iterativeRun
 
 module_logger = logging.getLogger(__name__)

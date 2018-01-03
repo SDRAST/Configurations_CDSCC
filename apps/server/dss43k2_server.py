@@ -25,7 +25,7 @@ from MonitorControl.Configurations.CDSCC import FO_patching
 import MonitorControl.Configurations.coordinates as coord
 
 from .workers import TwoBeamNodWorker, RMSWorker, APCWorker, PowerMeterWorker, LongRunningWorker
-from ..data_acquisition import TAMSHDF5File
+from .data_acquisition import TAMSHDF5File
 
 Pyro4.config.COMMTIMEOUT = 0.0
 c_kms = astropy.constants.c.to('km/s').value
@@ -128,9 +128,10 @@ class DSS43K2Server(Pyro4Server):
         # set up the distribution assembly
         if self._simulated:
             parampath = '/home/dean/jpl-dsn/'
-            self.dist_assmbly = FO_patching.DistributionAssembly(parampath=parampath)
+            # self.dist_assmbly = FO_patching.DistributionAssembly(parampath=parampath)
+            self.dist_assmbly = FO_patching.DistributionAssembly()
             self._data_dir = "/home/dean/jpl-dsn/dataFiles"
-            from DSS43Backend.servers.wbdc_server import WBDCFrontEndServer
+            from MonitorControl.Configurations.CDSCC.apps.server.wbdc_server import WBDCFrontEndServer
             from MonitorControl.BackEnds.ROACH1.apps.server.SAO_pyro4_publisher_server import SpectrometerServer
             from MonitorControl.Antenna.apps.server.apc_server import APCServer
 

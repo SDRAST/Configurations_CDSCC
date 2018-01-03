@@ -4,7 +4,7 @@ import Pyro4
 
 from support.pyro import Pyro4Client, config
 
-from ..server import DSS43K2Server
+from ..server.dss43k2_server import DSS43K2Server
 
 __all__ = ["DSS43K2Client"]
 
