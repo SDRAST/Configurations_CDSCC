@@ -7,7 +7,7 @@ import Pyro4
 
 import pyro4tunneling
 
-from pyro_support import config
+from support.pyro import config
 
 def wait_for_callback(client, cb_name, secondary_cb=None):
     with client.lock:

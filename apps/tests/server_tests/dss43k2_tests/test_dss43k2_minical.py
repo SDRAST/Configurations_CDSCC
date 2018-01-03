@@ -12,13 +12,13 @@ Pyro4.config.COMMTIMEOUT = 0.0
 
 import pyro4tunneling
 
+from support.pyro import config
 from tams_source import TAMS_Source
-from pyro_support import config
-from DSS43Backend.servers.dss43k2_server import DSS43K2Server
+from MonitorControl.Configurations.CDSCC.apps.server.dss43k2_server import DSS43K2Server
 import MonitorControl.FrontEnds.minical.process_minical as process_minical
 
 from . import DSS43Client, wait_for_callback
-from .. import setup_logging
+from ... import setup_logging
 
 class TestDSS43K2Minical(unittest.TestCase):
 

@@ -17,10 +17,9 @@ import h5py
 import Pyro4
 from pyro4tunneling import Pyro4Tunnel
 
-from pyro_support import Pyro4Server, AutoReconnectingProxy, async_method
-from pyro_support.configuration import config
 from tams_source import TAMS_Source
 from support.threading_util import PausableThread, iterativeRun
+from support.pyro import Pyro4Server, AutoReconnectingProxy, async_method, config
 from support import weather
 from MonitorControl.Configurations.CDSCC import FO_patching
 import MonitorControl.Configurations.coordinates as coord
