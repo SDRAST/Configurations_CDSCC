@@ -1,6 +1,7 @@
 import logging
 import time
 import threading
+import Queue
 import inspect
 
 import Pyro4
@@ -39,7 +40,13 @@ class populate_client(object):
 
             return callback
 
-        def method_factory(method_name, cb_name, cb_updates_name=None):
+        def callback_updates_factory(cb_updates_name, queue):
+            def updates_callback(self, updates):
+                queue.put(updates)
+            return updates_callback
+
+
+        def method_factory(method_name, cb_name, cb_updates_name=None, updates_queue_name=None):
             """
             Factory function for client methods. Registered callbacks will get
             passed as arguments to the appropriate
@@ -67,7 +74,11 @@ class populate_client(object):
                     time.sleep(0.01)
                 with self.lock:
                     data = getattr(self, cb_name).data
-                return data
+
+                if updates_queue_name is None:
+                    return data
+                else:
+                    return data, getattr(self, updates_queue_name)
 
             return method
 
@@ -75,12 +86,23 @@ class populate_client(object):
             method = getattr(self.server_cls, method_name)
             try:
                 if method._async_method:
+
                     # print("Creating synchronous analog for method {}".format(method_name))
                     callback_name = "{}_cb".format(method_name)
                     callback = config.expose(callback_factory(callback_name))
+
+                    updates_queue_name = "{}_updates_queue".format(method_name)
+                    updates_queue = Queue.Queue()
+                    callback_updates_name = "{}_cb_updates".format(method_name)
+                    callback_updates = config.expose(callback_updates_factory(callback_updates_name, updates_queue))
+
+                    client_method = method_factory(method_name, callback_name, callback_updates_name, updates_queue_name)
+
                     # callback = config.expose(callback(callback_name))
+
                     setattr(cls, callback_name, callback)
-                    client_method = method_factory(method_name, callback_name)
+                    setattr(cls, updates_queue_name, updates_queue)
+                    setattr(cls, callback_updates_name, callback_updates)
                     setattr(cls, method_name, client_method)
                 else:
                     pass

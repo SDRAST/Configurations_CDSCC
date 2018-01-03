@@ -1910,6 +1910,8 @@ class DSS43K2Server(Pyro4Server):
         """Call APC get_azel asynchronously"""
         # self.logger.debug("get_azel: Called.")
         results = self.apc.get_azel()
+        for i in range(10):
+            self.get_azel.cb_updates({i:i})
         # self.logger.debug("get_azel: azel: {}".format(results))
         # self.logger.debug(self.get_azel.cb)
         self.get_azel.cb(results)

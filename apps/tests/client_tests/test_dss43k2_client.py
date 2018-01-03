@@ -54,7 +54,12 @@ class TestDSS43K2Client(unittest.TestCase):
 
         client = self.__class__.client
         logger = logging.getLogger("TestDSS43K2Client.test_get_azel")
-        client.get_azel(then=get_azel_then)
+        data, queue = client.get_azel(then=None)
+
+        # queue = client.get_azel_updates_queue
+        while not queue.empty():
+            logger.debug(queue.get())
+        # logger.debug(client.get_azel_updates_queue.empty())
         # azel = client.get_azel()
         # logger.debug("azel: {}".format(azel))
 
