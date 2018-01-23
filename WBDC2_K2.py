@@ -64,7 +64,7 @@ class IFswitch(Device):
       name += "I2"
     return name
 
-def station_configuration(equipment, roach_loglevel=logging.WARNING):
+def station_configuration(equipment=None, roach_loglevel=logging.WARNING):
   """
   Configuration for the K-band system on DSS-43 using WBDC2
 
@@ -72,6 +72,8 @@ def station_configuration(equipment, roach_loglevel=logging.WARNING):
   E and H.  There are so many receiver outputs that it is simpler to let the
   software generate them.
   """
+  if equipment is None:
+      equipment = {}
   observatory = Observatory("Canberra")
   # equipment['Telescope'] = Telescope(observatory, dss=43)
   # telescope = equipment['Telescope']
