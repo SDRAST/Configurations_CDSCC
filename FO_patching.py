@@ -8,7 +8,9 @@ This depends on the spreadsheet having the following format::
   ...
   Row 42 - Band 26, Receiver 2, Pol H, IF U
 """
+import os
 import logging
+
 from openpyxl import load_workbook
 from openpyxl.reader.excel import InvalidFileException
 
@@ -18,8 +20,9 @@ from support.excel import *
 
 module_logger = logging.getLogger(__name__)
 
-repo_path = "/usr/local/lib/python2.7/DSN-Sci-packages/"
-modulepath = repo_path+"MonitorControl/Configurations/CDSCC/"
+# repo_path = "/usr/local/lib/python2.7/DSN-Sci-packages/"
+# modulepath = repo_path+"MonitorControl/Configurations/CDSCC/"
+modulepath = os.path.dirname(os.path.abspath(__file__)) + "/"
 paramfile = "FO_patching.xlsx"
 
 label_map = {"E": 1, "H": 2, "L": 1, "U": 2}
@@ -88,15 +91,15 @@ class DistributionAssembly(object):
   def current_patch(self):
     """
     Find the patching currently in effect.
-    
-    If no patching is currently known, it steps through columns E through I of 
+
+    If no patching is currently known, it steps through columns E through I of
     row 2 (index 1) until it finds a non-empty cell.
     """
     self.patchname = None
     for column in range(5,10):
       self.logger.debug("current_patch: checking column %d", column)
       if self.worksheet.cell(row=1, column=column).value:
-        self.logger.debug("current_patch: found %s", 
+        self.logger.debug("current_patch: found %s",
                           self.worksheet.cell(row=1, column=column).value)
         if self.patchname:
           self.logger.error("current_patch: ambiguity: %s or %s",
@@ -121,7 +124,7 @@ class DistributionAssembly(object):
       else:
         row -= 1
     return None
-  
+
   def get_sheet_by_date(self, obsdate=None):
     """
     """
@@ -154,11 +157,11 @@ class DistributionAssembly(object):
     # none found or no date given
     self.worksheet = self.workbook.get_sheet_by_name(self.sheet_names[-1])
     return self.sheet_names[-1]
-    
+
   def get_patching(self, obsdate=None):
     """
     Returns patching on the current or given date
-    
+
     @param obsdate - "YYYY/DDD" or "YYYY/MM/DD"
     """
     IF_channel = {}
@@ -188,7 +191,7 @@ class DistributionAssembly(object):
   def get_signals(self, device):
     """
     Returns the signals into the specified device.
-    
+
     Currently known devices::
       'Power Meter' - (four) Hewlett Packard power meters
       'Radiometer'  - eight-head Date! power meter assembly
@@ -217,7 +220,7 @@ class DistributionAssembly(object):
           else:
             sig_props[channel_ID][item] = value
     return sig_props
-  
+
   def get_inputs(self, device):
     """
     """
@@ -241,4 +244,3 @@ class DistributionAssembly(object):
                                     +str(self.get('Pol',row))
         channels[channel_ID]['IF'] = self.get('IF',row)
     return channels
-  

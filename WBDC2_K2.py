@@ -12,19 +12,20 @@ from MonitorControl.FrontEnds import FrontEnd
 from MonitorControl.FrontEnds.K_band import K_4ch
 from MonitorControl.Receivers import Receiver
 from MonitorControl.Receivers.WBDC.WBDC2 import WBDC2
+from MonitorControl.Antenna import Antenna
 
 logger = logging.getLogger(__name__)
 
 class IFswitch(Device):
   """
   Ad hoc class to treat the manual patch panel as an IF switch.
-  
+
   Naturally, this has nothing to control or monitor
   """
   def __init__(self, name, equipment, inputs=None, output_names=None):
     """
     Initialize the patch panel "switch"
-    
+
     Gets the input port names from the receiver outputs
     """
     mylogger = logging.getLogger(logger.name+".IFswitch")
@@ -49,7 +50,7 @@ class IFswitch(Device):
       index = output_names.index(name)
       self.outputs[name].source = self.inputs[innames[index]]
       self.outputs[name].signal = copy.copy(self.outputs[name].source.signal)
-    
+
   def _make_input_name(self, RF, IF):
     """
     """
@@ -62,7 +63,7 @@ class IFswitch(Device):
     else:
       name += "I2"
     return name
-  
+
 def station_configuration(equipment, roach_loglevel=logging.WARNING):
   """
   Configuration for the K-band system on DSS-43 using WBDC2
@@ -72,11 +73,13 @@ def station_configuration(equipment, roach_loglevel=logging.WARNING):
   software generate them.
   """
   observatory = Observatory("Canberra")
-  equipment['Telescope'] = Telescope(observatory, dss=43)
-  telescope = equipment['Telescope']
+  # equipment['Telescope'] = Telescope(observatory, dss=43)
+  # telescope = equipment['Telescope']
+  equipment['Antenna'] = Antenna(observatory, dss=43, hardware=False)
+  antenna = equipment['Antenna']
   equipment['FrontEnd'] = ClassInstance(FrontEnd, K_4ch, "K", hardware=False,
-                           inputs = {'F1': telescope.outputs[telescope.name],
-                                     'F2': telescope.outputs[telescope.name]},
+                           inputs = {'F1': antenna.outputs[antenna.name],
+                                     'F2': antenna.outputs[antenna.name]},
                            output_names = [['F1P1','F1P2'],
                                            ['F2P1','F2P2']])
   front_end = equipment['FrontEnd']
