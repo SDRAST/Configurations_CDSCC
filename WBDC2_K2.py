@@ -9,7 +9,7 @@ from MonitorControl.BackEnds import Backend
 from MonitorControl.BackEnds.ROACH1.SAOspec import SAOspec
 from MonitorControl.Configurations.CDSCC.FO_patching import DistributionAssembly
 from MonitorControl.FrontEnds import FrontEnd
-from MonitorControl.FrontEnds.K_band import K_4ch
+from MonitorControl.FrontEnds.Kband import K_4ch
 from MonitorControl.Receivers import Receiver
 from MonitorControl.Receivers.WBDC.WBDC2 import WBDC2
 from MonitorControl.Antenna import Antenna
