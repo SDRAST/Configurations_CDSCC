@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Module to read F/O patching spreadsheet
 
@@ -11,7 +12,7 @@ This depends on the spreadsheet having the following format::
 import os
 import logging
 
-from openpyxl import load_workbook
+import openpyxl
 from openpyxl.reader.excel import InvalidFileException
 
 import DatesTimes as DT
@@ -27,6 +28,39 @@ paramfile = "FO_patching.xlsx"
 
 label_map = {"E": 1, "H": 2, "L": 1, "U": 2}
 
+class OpenpyxlCompatibility(object):
+
+  def __init__(self):
+    version_info = openpyxl.__version__
+    major, minor, baby = map(int, version_info.split("."))
+    self.major = major
+    self.minor = minor
+    self.baby = baby
+    self.version_info = [major, minor, baby]
+
+  def cell(self, worksheet,row=0,column=0):
+    """
+    Enable compatibility with _newer_ releases of openpyxl.
+    """
+    if self.major > 1:
+      row += 1
+      column += 1
+    return worksheet.cell(row=row, column=column)
+
+  def get_sheet_names(self, workbook):
+    if self.major > 1:
+      return workbook.sheetnames
+    else:
+      return workbook.get_sheet_names()
+
+  def get_sheet_by_name(self, workbook, name):
+    if self.major > 1:
+      return workbook[name]
+    else:
+      return workbook.get_sheet_by_name(name)
+
+compat = OpenpyxlCompatibility()
+
 class DistributionAssembly(object):
   """
   Public Attributes::
@@ -40,7 +74,7 @@ class DistributionAssembly(object):
   """
   def __init__(self, parampath=modulepath, paramfile=paramfile):
     """
-    Create an instance of FirmwareServer()
+    Create an instance of DistributionAssembly()
     """
     self.parampath = parampath
     self.paramfile = paramfile
@@ -55,7 +89,8 @@ class DistributionAssembly(object):
     self.logger.debug("_open_patchpanel_spreadsheet: for %s",
       self.parampath+self.paramfile)
     try:
-      self.workbook = load_workbook(self.parampath+self.paramfile)
+      param_file_path = os.path.join(self.parampath,self.paramfile)
+      self.workbook = openpyxl.load_workbook(param_file_path)
     except IOError, details:
       self.logger.error(
       "_open_patchpanel_spreadsheet: loading spreadsheet failed with IO error.",
@@ -71,11 +106,11 @@ class DistributionAssembly(object):
                         "_open_patchpanel_spreadsheet: attribute error.",
                         exc_info=True)
       raise AttributeError
-    self.sheet_names = self.workbook.get_sheet_names()
+    self.sheet_names = compat.get_sheet_names(self.workbook) #.get_sheet_names()
     self.sheet_names.sort()
     self.logger.debug("_open_patchpanel_spreadsheet: sheet names: %s",
                       str(self.sheet_names))
-    self.worksheet = self.workbook.get_sheet_by_name(self.sheet_names[-1])
+    self.worksheet = compat.get_sheet_by_name(self.workbook, self.sheet_names[-1])
     column_names = get_column_names(self.worksheet)
     self.logger.debug("_open_patchpanel_spreadsheet: columns found in %s:",
                       self.sheet_names[-1])
@@ -98,15 +133,17 @@ class DistributionAssembly(object):
     self.patchname = None
     for column in range(5,10):
       self.logger.debug("current_patch: checking column %d", column)
-      if self.worksheet.cell(row=1, column=column).value:
-        self.logger.debug("current_patch: found %s",
-                          self.worksheet.cell(row=1, column=column).value)
+      if compat.cell(self.worksheet, row=1, column=column).value:
+        current = compat.cell(self.worksheet, row=1, column=column).value
+        self.logger.debug("current_patch: found {}".format(current.encode("utf-8")))
         if self.patchname:
-          self.logger.error("current_patch: ambiguity: %s or %s",
-             self.patchname, self.worksheet.cell(row=1, column=column).value)
+          self.logger.error("current_patch: ambiguity: {} or {}".format(
+              self.patchname, compat.cell(self.worksheet, row=1, column=column).value
+          ))
           raise RuntimeException("patch ambiguity")
         else:
-          self.patchname = self.worksheet.cell(row=0,column=column).value
+          # self.patchname = self.worksheet.cell(row=0,column=column).value
+          self.patchname = compat.cell(self.worksheet,row=0,column=column).value
           break
       else:
         pass
@@ -119,8 +156,8 @@ class DistributionAssembly(object):
     column = get_column_id(self.worksheet, column_name)
     column_data = get_column(self.worksheet, column_name)
     while row > 0:
-      if self.worksheet.cell(row=row, column=column).value:
-        return self.worksheet.cell(row=row, column=column).value
+      if compat.cell(self.worksheet, row=row, column=column).value:
+        return compat.cell(self.worksheet, row=row, column=column).value
       else:
         row -= 1
     return None
@@ -151,11 +188,11 @@ class DistributionAssembly(object):
           sheetfound = name
         elif int(doy) < int(patchdoy):
           # passed the desired sheet
-          self.worksheet = self.workbook.get_sheet_by_name(name)
+          self.worksheet = compat.get_sheet_by_name(self.workbook, name)
           return name
       # end name loop; none found
     # none found or no date given
-    self.worksheet = self.workbook.get_sheet_by_name(self.sheet_names[-1])
+    self.worksheet = compat.get_sheet_by_name(self.workbook, self.sheet_names[-1])
     return self.sheet_names[-1]
 
   def get_patching(self, obsdate=None):
@@ -170,7 +207,7 @@ class DistributionAssembly(object):
       row = get_row_number(self.worksheet, self.column, IF)
       self.logger.debug("get_patching: IF %d is in row %d", IF, row)
       for item in ["Band", "Receiver", "Pol", "IF"]:
-        value= self.get(item, row)
+        value = self.get(item, row)
         if value == None:
           self.logger.error("get_patching: no %s for row %d", item, row)
         else:

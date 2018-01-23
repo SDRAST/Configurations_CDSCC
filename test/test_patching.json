@@ -1,0 +1,98 @@
+{
+    "1": {
+        "Band": 22,
+        "Pol": "E",
+        "IF": "L",
+        "Receiver": 1
+    },
+    "2": {
+        "Band": 22,
+        "Pol": "E",
+        "IF": "U",
+        "Receiver": 1
+    },
+    "3": {
+        "Band": 22,
+        "Pol": "H",
+        "IF": "L",
+        "Receiver": 1
+    },
+    "4": {
+        "Band": 22,
+        "Pol": "H",
+        "IF": "U",
+        "Receiver": 1
+    },
+    "5": {
+        "Band": 22,
+        "Pol": "E",
+        "IF": "L",
+        "Receiver": 2
+    },
+    "6": {
+        "Band": 22,
+        "Pol": "E",
+        "IF": "U",
+        "Receiver": 2
+    },
+    "7": {
+        "Band": 22,
+        "Pol": "H",
+        "IF": "L",
+        "Receiver": 2
+    },
+    "8": {
+        "Band": 22,
+        "Pol": "H",
+        "IF": "U",
+        "Receiver": 2
+    },
+    "9": {
+        "Band": 24,
+        "Pol": "E",
+        "IF": "L",
+        "Receiver": 1
+    },
+    "10": {
+        "Band": 20,
+        "Pol": "E",
+        "IF": "U",
+        "Receiver": 1
+    },
+    "11": {
+        "Band": 24,
+        "Pol": "H",
+        "IF": "L",
+        "Receiver": 1
+    },
+    "12": {
+        "Band": 20,
+        "Pol": "H",
+        "IF": "U",
+        "Receiver": 1
+    },
+    "13": {
+        "Band": 24,
+        "Pol": "E",
+        "IF": "U",
+        "Receiver": 1
+    },
+    "14": {
+        "Band": 20,
+        "Pol": "E",
+        "IF": "L",
+        "Receiver": 1
+    },
+    "15": {
+        "Band": 24,
+        "Pol": "H",
+        "IF": "U",
+        "Receiver": 1
+    },
+    "16": {
+        "Band": 20,
+        "Pol": "H",
+        "IF": "L",
+        "Receiver": 1
+    }
+}
