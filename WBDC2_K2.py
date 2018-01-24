@@ -12,7 +12,7 @@ from MonitorControl.FrontEnds import FrontEnd
 from MonitorControl.FrontEnds.Kband import K_4ch
 from MonitorControl.Receivers import Receiver
 from MonitorControl.Receivers.WBDC.WBDC2 import WBDC2
-from MonitorControl.Antenna import Antenna
+from MonitorControl.Antenna.DSN import DSN_Antenna
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +77,10 @@ def station_configuration(equipment=None, roach_loglevel=logging.WARNING):
   observatory = Observatory("Canberra")
   # equipment['Telescope'] = Telescope(observatory, dss=43)
   # telescope = equipment['Telescope']
-  equipment['Antenna'] = Antenna(observatory, dss=43, hardware=False)
+  equipment['Antenna'] = DSN_Antenna(observatory, dss=43, hardware=False)
+  # Alternatively, I think we could do the following:
+  # equipment['Antenna'] = ClassInstance(Telescope, DSN_Antenna, observatory,
+  #                                       dss=43, hardware=False)
   antenna = equipment['Antenna']
   equipment['FrontEnd'] = ClassInstance(FrontEnd, K_4ch, "K", hardware=False,
                            inputs = {'F1': antenna.outputs[antenna.name],
