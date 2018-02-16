@@ -4,7 +4,9 @@ Configuration for DSS-43 with front end K2 and receiver WBDC2
 import copy
 import logging
 
-from MonitorControl import ClassInstance, Device, Observatory, Telescope, Switch
+from MonitorControl import ClassInstance, Device, Observatory,Switch
+from MonitorControl.Antenna import Telescope
+from MonitorControl.Antenna.DSN import DSN_Antenna
 from MonitorControl.BackEnds import Backend
 from MonitorControl.BackEnds.ROACH1.SAOspec import SAOspec
 from MonitorControl.Configurations.CDSCC.FO_patching import DistributionAssembly
@@ -64,7 +66,7 @@ class IFswitch(Device):
       name += "I2"
     return name
 
-def station_configuration(equipment=None, roach_loglevel=logging.WARNING):
+def station_configuration(equipment=None, roach_loglevel=logging.WARNING, hardware=None):
   """
   Configuration for the K-band system on DSS-43 using WBDC2
 
@@ -72,24 +74,31 @@ def station_configuration(equipment=None, roach_loglevel=logging.WARNING):
   E and H.  There are so many receiver outputs that it is simpler to let the
   software generate them.
   """
+  if hardware is None:
+      hardware = {
+        "Antenna":False,
+        "FrontEnd":False,
+        "Receiver":False,
+        "Backend":False
+      }
   if equipment is None:
       equipment = {}
   observatory = Observatory("Canberra")
   # equipment['Telescope'] = Telescope(observatory, dss=43)
-  # telescope = equipment['Telescope']
-  equipment['Antenna'] = DSN_Antenna(observatory, dss=43, hardware=False)
+  # antenna = equipment['Telescope']
+  equipment['Antenna'] = DSN_Antenna(observatory, dss=43, hardware=hardware["Antenna"])
   # Alternatively, I think we could do the following:
   # equipment['Antenna'] = ClassInstance(Telescope, DSN_Antenna, observatory,
   #                                       dss=43, hardware=False)
   antenna = equipment['Antenna']
-  equipment['FrontEnd'] = ClassInstance(FrontEnd, K_4ch, "K", hardware=False,
+  equipment['FrontEnd'] = ClassInstance(FrontEnd, K_4ch, "K", hardware=hardware["FrontEnd"],
                            inputs = {'F1': antenna.outputs[antenna.name],
                                      'F2': antenna.outputs[antenna.name]},
                            output_names = [['F1P1','F1P2'],
                                            ['F2P1','F2P2']])
   front_end = equipment['FrontEnd']
   equipment['Receiver'] = ClassInstance(Receiver, WBDC2, "WBDC-2",
-                                        hardware=False,
+                                        hardware=hardware["Receiver"],
                                   inputs = {'F1P1': front_end.outputs["F1P1"],
                                             'F1P2': front_end.outputs["F1P2"],
                                             'F2P1': front_end.outputs["F2P1"],
@@ -97,10 +106,13 @@ def station_configuration(equipment=None, roach_loglevel=logging.WARNING):
   equipment['IF_switch'] = IFswitch("Patch Panel", equipment)
   patch_panel = equipment['IF_switch']
   equipment['Backend'] = ClassInstance(Backend, SAOspec, "SAO spectrometer",
-                                       hardware = False,
+                                       hardware = hardware["Backend"],
                                 inputs = {'SAO1': patch_panel.outputs['SAO1'],
                                           'SAO2': patch_panel.outputs['SAO2'],
                                           'SAO3': patch_panel.outputs['SAO3'],
                                           'SAO4': patch_panel.outputs['SAO4']})
   equipment['sampling_clock'] = None
   return observatory, equipment
+
+if __name__ == "__main__":
+  obs, equip = station_configuration()

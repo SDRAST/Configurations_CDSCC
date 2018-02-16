@@ -11,7 +11,7 @@ import os
 import Pyro4
 
 from support.threading_util import PausableThread, iterativeRun
-from support.pyro import Pyro4Server, get_device_server, Pyro4ServerError, config
+from support.pyro import Pyro4Server, get_device_server, config
 from support.test import auto_test
 from MonitorControl.Configurations.CDSCC import FO_patching
 
@@ -113,10 +113,13 @@ def error_decorator(fn):
         except Exception as err:
             error_msg = "Error in {}: {}".format(fn.__name__, err)
             obj.serverlog.error(error_msg, exc_info=True)
-            raise Pyro4ServerError(error_msg)
+            raise RuntimeError(error_msg)
 
     return wrapper
 
+wbdc_settings_file = os.path.join(
+                os.path.dirname(os.path.abspath(__file__)), "WBDCFrontEndsettings.json"
+)
 
 @config.expose
 class WBDCFrontEndServer(Pyro4Server):
@@ -127,12 +130,15 @@ class WBDCFrontEndServer(Pyro4Server):
 
     """
     def __init__(self, name="WBDC_FE",
-                 settings_file="/home/ops/roach_data/sao_test_data/log_dir/WBDCFrontEndsettings.json",
-                 patching_file_path=None, logfile=None, loglevel=logging.INFO, **kwargs):
+                 settings_file=None,
+                 patching_file_path=None,
+                 logfile=None,
+                 simulated=False,
+                 logger=None):
 
-        logger = kwargs.get('logger', logging.getLogger(__name__+".WBDCFrontEndServer"))
-        # Pyro4Server.__init__(self, name, logger=logger, logfile=logfile, loglevel=loglevel, **kwargs)
-        Pyro4Server.__init__(self, name, logfile=logfile, logger=logger, **kwargs)
+        if logger is None: logger = logging.getLogger(__name__+".WBDCFrontEndServer")
+        self._simulated = simulated
+        super(WBDCFrontEndServer, self).__init__(obj=self,name=name, logfile=logfile, logger=logger)
         if not patching_file_path:
             self._dist_assmbly = FO_patching.DistributionAssembly()
         else:
@@ -144,12 +150,13 @@ class WBDCFrontEndServer(Pyro4Server):
         elif self._simulated:
             self.simulate()
 
+        if settings_file is None: settings_file = wbdc_settings_file
         self.settings_file = settings_file
         # Set the distribution assembly
         self._pm_patching_inputs = self.get_pm_patching_sources()
-        self.serverlog.debug(self._pm_patching_inputs)
+        self.logger.debug(self._pm_patching_inputs)
         self._pm_att = self.get_pm_atten_names(self._pm_patching_inputs)
-        self.serverlog.debug(self._pm_att)
+        self.logger.debug(self._pm_att)
 
         # Set the internal Power Meter states.
         # These values get updated if we call corresponding get/set methods
@@ -183,6 +190,10 @@ class WBDCFrontEndServer(Pyro4Server):
                       'A1CiP1L', 'A1CiP1U', 'A1CiP2L', 'A1CiP2U',
                       'A1Load', 'A2Load']
 
+    @property
+    def simulated(self):
+        return self._simulated
+
     def connect_to_hardware(self, *args):
         """
         Connect to WBDC and FrontEnd hardware servers.
@@ -193,7 +204,7 @@ class WBDCFrontEndServer(Pyro4Server):
         self.wbdc = get_device_server('wbdc2hw_server-dss43wbdc2', pyro_ns="crux")
         # FE server
         self.FE = get_device_server('FE_server-krx43', pyro_ns="crux")
-        self.serverlog.debug("Successfully got Pyro3 objects")
+        self.logger.debug("Successfully got Pyro3 objects")
         self._simulated = False
 
     def simulate(self):
@@ -202,7 +213,7 @@ class WBDCFrontEndServer(Pyro4Server):
         Returns:
             None
         """
-        self.serverlog.debug("Entering simulation mode.")
+        self.logger.debug("Entering simulation mode.")
         self.simulated_atten = {'R1-18-E': [15, 'dB'], 'R1-18-H': [15, 'dB'],
                                 'R1-20-E': [15, 'dB'], 'R1-20-H': [10, 'dB'],
                                 'R1-22-E': [15, 'dB'], 'R1-22-H': [15, 'dB'],
@@ -297,17 +308,17 @@ class WBDCFrontEndServer(Pyro4Server):
         403 - FE   - set PM3 to dB
         404 - FE   - set PM4 to dB
         """
-        self.serverlog.debug("_set_WBDC: called for {}".format(opt))
+        self.logger.debug("_set_WBDC: called for {}".format(opt))
         if (opt > 11 and opt < 17) or (opt > 19 and opt < 30) or (opt > 30 and opt < 37):
             try:
                 result = self.FE.set_WBDC(opt)
             except Exception, details:
-                self.serverlog.error("_set_WBDC: failed because {}".format(details))
+                self.logger.error("_set_WBDC: failed because {}".format(details))
                 result = "False"
-            self.serverlog.debug("_set_WBDC: returned {}".format(result))
+            self.logger.debug("_set_WBDC: returned {}".format(result))
             return result
         elif opt == 18:
-            # raise Pyro4ServerError("Can't calculate Y-factor right now.")
+            # raise RuntimeError("Can't calculate Y-factor right now.")
             # Yfactors, text = FElj.Y_factors(self.pm)
             text = self.FE.set_WBDC(opt)
             # text = ("Y-factors at " + time.ctime(time.time()) + "\n") + (str(4 * [0.0]) + "\n")
@@ -334,7 +345,7 @@ class WBDCFrontEndServer(Pyro4Server):
 
         This function takes a long time to run (~20 seconds)
         """
-        self.serverlog.debug("get_WBDCFrontEnd_state: called ")
+        self.logger.debug("get_WBDCFrontEnd_state: called ")
         report = []
         report_dict = {}
         # time
@@ -348,7 +359,7 @@ class WBDCFrontEndServer(Pyro4Server):
             report.append(load_state)
             report_dict['feed_state'] = load_state
         except Exception, details:
-            self.serverlog.error("get_WBDCFrontEnd_state: getting load state failed because {}".format(details))
+            self.logger.error("get_WBDCFrontEnd_state: getting load state failed because {}".format(details))
             report.append("Feed 1 on sky\nFeed 2 on sky\n")
             report_dict['feed_state'] = None
 
@@ -359,7 +370,7 @@ class WBDCFrontEndServer(Pyro4Server):
             noise_diode_state = self.get_noise_diode_state()
             report_dict['noise_diode_state'] = noise_diode_state
         except Exception, details:
-            self.serverlog.error("get_WBDCFrontEnd_state: getting noise diode state failed: {}".format(details))
+            self.logger.error("get_WBDCFrontEnd_state: getting noise diode state failed: {}".format(details))
             report_dict['noise_diode_state'] = None
 
         # cross-switch state
@@ -368,12 +379,12 @@ class WBDCFrontEndServer(Pyro4Server):
             report.append(cross_switch_state)
             report_dict['cross_switch_state'] = cross_switch_state
         except Exception, details:
-            self.serverlog.error("get_WBDCFrontEnd_state: getting cross switch failed because {}".format(details))
+            self.logger.error("get_WBDCFrontEnd_state: getting cross switch failed because {}".format(details))
             report_dict['cross_switch_state'] = None
         # polarization state
         try:
             polstates = self.get_polarizers()
-            self.serverlog.debug("report_WBDC: polarization states: %s", str(polstates))
+            self.logger.debug("report_WBDC: polarization states: %s", str(polstates))
             pol_states_dict = {'22': [polstates["R1-22"], polstates["R2-22"]],
                                '20': [polstates["R1-20"], polstates["R2-20"]],
                                '18': [polstates["R1-18"], polstates["R2-18"]],
@@ -382,7 +393,7 @@ class WBDCFrontEndServer(Pyro4Server):
             report.append(pol_states_dict)
             report_dict['polarizer_state'] = polstates
         except Exception, details:
-            self.serverlog.error("get_WBDCFrontEnd_state: getting pol_sec failed because {}".format(details))
+            self.logger.error("get_WBDCFrontEnd_state: getting pol_sec failed because {}".format(details))
             report_dict['polarizer_state'] = None
         # band
         try:
@@ -390,7 +401,7 @@ class WBDCFrontEndServer(Pyro4Server):
             report.append(band_state)
             report_dict['band_state'] = band_state
         except Exception, details:
-            self.serverlog.error("get_WBDCFrontEnd_state: getting LO freq. failed because {}".format(details))
+            self.logger.error("get_WBDCFrontEnd_state: getting LO freq. failed because {}".format(details))
             report_dict['band_state'] = None
         # LO lock
         try:
@@ -398,32 +409,32 @@ class WBDCFrontEndServer(Pyro4Server):
             report.append(lo_lock_state)
             report_dict['lo_lock_state'] = lo_lock_state
         except Exception, details:
-            self.serverlog.error("get_WBDCFrontEnd_state: getting PLOs failed because {}".format(details))
+            self.logger.error("get_WBDCFrontEnd_state: getting PLOs failed because {}".format(details))
             report_dict['lo_lock_state'] = None
 
         # IF hybrids state
         try:
             DCstates = self.get_IF_hybrids()
-            self.serverlog.debug("get_WBDCFrontEnd_state: DC states: %s", DCstates)
+            self.logger.debug("get_WBDCFrontEnd_state: DC states: %s", DCstates)
             dc_states_dict = {0: {0: DCstates['R1-22P1'], 1: DCstates['R1-22P2']},
                               1: {0: DCstates['R2-22P1'], 1: DCstates['R2-22P2']}}
             report.append(dc_states_dict)
             report_dict['IF_hybrid_state'] = DCstates
         except Exception, details:
-            self.serverlog.error("get_WBDCFrontEnd_state: getting IF hybrid state failed because {}".format(details))
+            self.logger.error("get_WBDCFrontEnd_state: getting IF hybrid state failed because {}".format(details))
             report_dict['IF_hybrid_state'] = None
         # Attenuator state
         try:
             attens = self.get_attens()
             report_dict['attens'] = attens.copy()
         except Exception, details:
-            self.serverlog.error("get_WBDCFrontEnd_state: getting attenuations failed: {}".format(details))
+            self.logger.error("get_WBDCFrontEnd_state: getting attenuations failed: {}".format(details))
             report_dict['attens'] = None
 
-        self.serverlog.debug("get_WBDCFrontEnd_state:\n %s", str(report))
+        self.logger.debug("get_WBDCFrontEnd_state:\n %s", str(report))
         self.WBDCFrontEnd_summary = report_dict.copy()
         if save_config:
-            self.serverlog.debug("Saving current configuration to file {}".format(self.settings_file))
+            self.logger.debug("Saving current configuration to file {}".format(self.settings_file))
             with open(self.settings_file, 'r+') as f:
                 try:
                     data = json.load(f)
@@ -447,14 +458,14 @@ class WBDCFrontEndServer(Pyro4Server):
         if self.WBDCFrontEnd_summary:
             summary = self.WBDCFrontEnd_summary.copy()
         else:
-            self.serverlog.debug("Couldn't use internal summary attribute -- using config file.")
+            self.logger.debug("Couldn't use internal summary attribute -- using config file.")
             if config_file == 'default':
                 config_file = self.settings_file
             try:
                 with open(config_file, 'r') as f:
                     summary = json.load(f)['settings']
             except Exception, err:
-                self.serverlog.error("Couldn't load in configuration file: {}".format(err), exc_info=True)
+                self.logger.error("Couldn't load in configuration file: {}".format(err), exc_info=True)
                 return
         # For resetting the polarizar state and IF_hybrids we assume that the dictionaries
         # resulting from the respective get methods will be the same.
@@ -479,7 +490,7 @@ class WBDCFrontEndServer(Pyro4Server):
 
         # reset the attenuators
         attens = summary['attens']
-        self.serverlog.debug(attens)
+        self.logger.debug(attens)
         for atten_name in attens:
             val = attens[atten_name]
             if val:
@@ -506,7 +517,7 @@ class WBDCFrontEndServer(Pyro4Server):
         report which receiver outputs feed the power meters
         """
         pm_inputs = self._dist_assmbly.get_signals("Power Meter")
-        self.serverlog.debug("get_pm_patching_sources: pm_inputs: {}".format(pm_inputs))
+        self.logger.debug("get_pm_patching_sources: pm_inputs: {}".format(pm_inputs))
         return pm_inputs
 
     @auto_test()
@@ -521,12 +532,12 @@ class WBDCFrontEndServer(Pyro4Server):
             pm_patching_inputs = self.get_pm_patching_sources()
         att = {}
         for key in pm_patching_inputs.keys():
-            self.serverlog.debug("_attenuator_names: %s", pm_patching_inputs[key])
+            self.logger.debug("_attenuator_names: %s", pm_patching_inputs[key])
             attkey = int(key[-1])
             att[attkey] = 'R' + str(pm_patching_inputs[key]['Receiver'])
             att[attkey] += '-' + str(pm_patching_inputs[key]['Band'])
             att[attkey] += '-' + pm_patching_inputs[key]['Pol']
-        self.serverlog.debug("get_pm_atten_names: PM attenuator names: {}".format(att))
+        self.logger.debug("get_pm_atten_names: PM attenuator names: {}".format(att))
         return att
 
     @auto_test()
@@ -546,7 +557,7 @@ class WBDCFrontEndServer(Pyro4Server):
         Args:
             atten_name(str): attenutor name
         """
-        # self.serverlog.debug("get_atten: attenuator name: {}".format(atten_name))
+        # self.logger.debug("get_atten: attenuator name: {}".format(atten_name))
         if not self._simulated:
             return self.wbdc.get_atten(atten_name)
         else:
@@ -593,14 +604,14 @@ class WBDCFrontEndServer(Pyro4Server):
         """
         report = {}
         for name in self.get_atten_names():
-            self.serverlog.debug("get_atten_volts: PM attenuator name: {}".format(name))
+            self.logger.debug("get_atten_volts: PM attenuator name: {}".format(name))
             if not self._simulated:
                 val = self.wbdc.get_atten_volts(name)
             else:
                 val = random.random()
             report[name] = val
-            # self.serverlog.debug("get_atten_volts: {}: {}".format(name, val))
-        self.serverlog.debug("get_atten_volts: Volts: {}".format(report))
+            # self.logger.debug("get_atten_volts: {}: {}".format(name, val))
+        self.logger.debug("get_atten_volts: Volts: {}".format(report))
         return report
 
     @auto_test()
@@ -613,13 +624,13 @@ class WBDCFrontEndServer(Pyro4Server):
         report = {}
         for name in self._pm_att:
             atten_name = self._pm_att[name]
-            self.serverlog.debug("get_pm_atten_volts: PM attenuator key, value: {}, {}".format(name, atten_name))
+            self.logger.debug("get_pm_atten_volts: PM attenuator key, value: {}, {}".format(name, atten_name))
             if not self._simulated:
                 val = self.wbdc.get_atten_volts(atten_name)
             else:
                 val = random.random()
             report[atten_name] = val
-        self.serverlog.debug("get_pm_atten_volts: Volts: {}".format(report))
+        self.logger.debug("get_pm_atten_volts: Volts: {}".format(report))
         return report
 
     @auto_test(args=('R1-24-E', 5.0))
@@ -634,14 +645,14 @@ class WBDCFrontEndServer(Pyro4Server):
             None
         """
         if value:
-            self.serverlog.debug("set_atten: setting {} to {:.2f}".format(atten_name, value))
+            self.logger.debug("set_atten: setting {} to {:.2f}".format(atten_name, value))
             if not self._simulated:
                 if value:
                     self.wbdc.set_atten(atten_name, value)
             else:
                 self.simulated_atten[atten_name][0] = value
         else:
-            self.serverlog.debug("set_atten: Can't set value None for attenuator {}".format(atten_name))
+            self.logger.debug("set_atten: Can't set value None for attenuator {}".format(atten_name))
 
     @auto_test(args=(1, 5.0))
     @error_decorator
@@ -662,7 +673,7 @@ class WBDCFrontEndServer(Pyro4Server):
             att = atten_id
         else:
             att = self._pm_att[atten_id]
-        self.serverlog.debug("set_pm_atten: setting {} to {:.2f}".format(att, value))
+        self.logger.debug("set_pm_atten: setting {} to {:.2f}".format(att, value))
         self.set_atten(att, value)
 
     @auto_test(args=([5.0, 5.0, 5.0, 5.0], ))
@@ -684,10 +695,10 @@ class WBDCFrontEndServer(Pyro4Server):
         Initializes the Hewlett Packard (Agilent) power meters
         """
         if not self._simulated:
-            self.serverlog.debug("init_pms: Initializing Power Meters")
+            self.logger.debug("init_pms: Initializing Power Meters")
             self.FE.init_pms()
         else:
-            self.serverlog.debug("init_pms: Called")
+            self.logger.debug("init_pms: Called")
 
     @auto_test()
     def read_pms(self):
@@ -698,9 +709,9 @@ class WBDCFrontEndServer(Pyro4Server):
         if not self._simulated:
             try:
                 readings = self.FE.read_pms()
-                self.serverlog.debug("read_pms: readings: {}".format(readings))
+                self.logger.debug("read_pms: readings: {}".format(readings))
             except Exception, details:
-                self.serverlog.error("read_pms: failed due to %s", details)
+                self.logger.error("read_pms: failed due to %s", details)
             return readings
         else:
             readings = []
@@ -736,7 +747,7 @@ class WBDCFrontEndServer(Pyro4Server):
             pm_reading = readings[i][-1]
             pm_readings.append(pm_reading)
             tsys.append(float(pm_reading) * tsysfactor)
-        self.serverlog.debug('get_tsys: Current tsys values: {}'.format(tsys))
+        self.logger.debug('get_tsys: Current tsys values: {}'.format(tsys))
         return {'tsys':tsys,
                 'pm_readings':pm_readings}
 
@@ -775,27 +786,27 @@ class WBDCFrontEndServer(Pyro4Server):
         state = state.lower().strip()
         if state != 'load' and state != 'sky':
             error_msg = "Specified state is {}; not either load or sky".format(state)
-            self.serverlog.error(error_msg)
+            self.logger.error(error_msg)
             raise ValueError(error_msg)
         else:
             if not self._simulated:
                 try:
                     if feed == 1 and state == 'sky':
-                        self.serverlog.debug("Setting feed 1 to sky")
+                        self.logger.debug("Setting feed 1 to sky")
                         return self._set_WBDC(13)
                     elif feed == 1 and state == 'load':
-                        self.serverlog.debug("Setting feed 1 to load")
+                        self.logger.debug("Setting feed 1 to load")
                         return self._set_WBDC(14)
                     elif feed == 2 and state == 'sky':
-                        self.serverlog.debug("Setting feed 2 to sky")
+                        self.logger.debug("Setting feed 2 to sky")
                         return self._set_WBDC(15)
                     elif feed == 2 and state == 'load':
-                        self.serverlog.debug("Setting feed 2 to load")
+                        self.logger.debug("Setting feed 2 to load")
                         return self._set_WBDC(16)
                 except Exception as err:
                     error_msg = "Error setting feed state: {}".format(err)
-                    self.serverlog.error(error_msg, exc_info=True)
-                    raise Pyro4ServerError(error_msg)
+                    self.logger.error(error_msg, exc_info=True)
+                    raise RuntimeError(error_msg)
             else:
                 self.simulated_feed_state[feed] = state
 
@@ -809,7 +820,7 @@ class WBDCFrontEndServer(Pyro4Server):
         if not self._simulated:
             return self._set_WBDC(18)
         else:
-            self.serverlog.error("Simulator doesn't have Y-factor")
+            self.logger.error("Simulator doesn't have Y-factor")
             return None
 
     @auto_test()
@@ -844,7 +855,7 @@ class WBDCFrontEndServer(Pyro4Server):
                 resp = self._set_WBDC(23)
             else:
                 resp = self._set_WBDC(24)
-            self.serverlog.debug("set_noise_diode_state: Response from FrontEnd hardware server: {}".format(resp))
+            self.logger.debug("set_noise_diode_state: Response from FrontEnd hardware server: {}".format(resp))
         else:
             self.simulated_noise_diode_state = state
 
@@ -860,16 +871,16 @@ class WBDCFrontEndServer(Pyro4Server):
         """
         if not self._simulated:
             if feed == 1 and state:
-                self.serverlog.debug("Turning feed 1 pre-amp bias on")
+                self.logger.debug("Turning feed 1 pre-amp bias on")
                 return self._set_WBDC(25)
             elif feed == 1 and not state:
-                self.serverlog.debug("Turning feed 1 pre-amp bias off")
+                self.logger.debug("Turning feed 1 pre-amp bias off")
                 return self._set_WBDC(26)
             elif feed == 2 and state:
-                self.serverlog.debug("Turning feed 2 pre-amp bias on")
+                self.logger.debug("Turning feed 2 pre-amp bias on")
                 return self._set_WBDC(27)
             elif feed == 2 and not state:
-                self.serverlog.debug("Turning feed 2 pre-amp bias off")
+                self.logger.debug("Turning feed 2 pre-amp bias off")
                 return self._set_WBDC(28)
         else:
             self.simulated_preamp_bias[feed] = state
@@ -946,7 +957,7 @@ class WBDCFrontEndServer(Pyro4Server):
                 resp = self._set_WBDC(41)
             else:
                 resp = self._set_WBDC(42)
-            self.serverlog.debug("set_crossover_switch: Response from server: {}".format(resp))
+            self.logger.debug("set_crossover_switch: Response from server: {}".format(resp))
         else:
             self.simulated_crossover_switch_state[1] = state
 
@@ -1065,9 +1076,9 @@ class WBDCFrontEndServer(Pyro4Server):
         if not self._simulated:
             for opt in opts:
                 resp = self._set_WBDC(opt)
-                self.serverlog.debug("set_PM_mode: Response from server: {}".format(resp))
+                self.logger.debug("set_PM_mode: Response from server: {}".format(resp))
         else:
-            self.serverlog.debug("set_PM_mode: ")
+            self.logger.debug("set_PM_mode: ")
 
     def retrieve_previous_minical_results(self, filename=None):
         """
@@ -1077,7 +1088,7 @@ class WBDCFrontEndServer(Pyro4Server):
         Returns:
             'return_vals' from self.perform_minical
         """
-        self.serverlog.info("Retrieving old minical results.")
+        self.logger.info("Retrieving old minical results.")
         if not filename: filename = self.settings_file
         try:
             with open(filename, 'r') as f:
@@ -1086,11 +1097,11 @@ class WBDCFrontEndServer(Pyro4Server):
                     setattr(self, "tsysfactor{}".format(i+1), minical['tsysfactors'][i])
                 return minical
         except IOError as err:
-            self.serverlog.error("Couldn't find or read settings file.")
+            self.logger.error("Couldn't find or read settings file.")
         except ValueError as err:
-            self.serverlog.error("Couldn't find minical results in settings file.")
+            self.logger.error("Couldn't find minical results in settings file.")
         except Exception as err:
-            self.serverlog.error("Couldn't get previous minical results: {}".format(err), exc_info=True)
+            self.logger.error("Couldn't get previous minical results: {}".format(err), exc_info=True)
 
     def perform_minical(self, q=None, save_config=True):
         """
@@ -1108,7 +1119,7 @@ class WBDCFrontEndServer(Pyro4Server):
             'Tquadratic': The quadratic fit.
 
         """
-        self.serverlog.info("Performing minical...")
+        self.logger.info("Performing minical...")
         return_vals = None
         if not self._simulated:
             try:
@@ -1119,25 +1130,25 @@ class WBDCFrontEndServer(Pyro4Server):
                 Tnd = results[3]
                 NonLin = results[4]
                 x = results[5]
-                self.serverlog.info("Minical : gain calibrated: {}".format(gains))
-                self.serverlog.info("Minical : Linear Ts: {}".format(Tlinear))
-                self.serverlog.info("Minical : Corrected Ts: {}".format(Tquadratic))
-                self.serverlog.info("Minical : Noise Diode T: {}".format(Tnd))
-                self.serverlog.info("Minical : Nonlinearity: {}".format(NonLin))
-                self.serverlog.info("Minical : Calibrated reading: {}".format(x))
+                self.logger.info("Minical : gain calibrated: {}".format(gains))
+                self.logger.info("Minical : Linear Ts: {}".format(Tlinear))
+                self.logger.info("Minical : Corrected Ts: {}".format(Tquadratic))
+                self.logger.info("Minical : Noise Diode T: {}".format(Tnd))
+                self.logger.info("Minical : Nonlinearity: {}".format(NonLin))
+                self.logger.info("Minical : Calibrated reading: {}".format(x))
                 color1 = ['r', 'b', 'g', 'purple']
-                self.serverlog.info("Minical : Minical performed; Corrected PM readings-{}".format(str(x)))
-                self.serverlog.info("Minical : Noise diode temperatures-{}".format(str(Tnd)))
+                self.logger.info("Minical : Minical performed; Corrected PM readings-{}".format(str(x)))
+                self.logger.info("Minical : Noise diode temperatures-{}".format(str(Tnd)))
                 read_pm1, read_pm2, read_pm3, read_pm4 = x[0][0], x[1][0], x[2][0], x[3][0]
                 tsys_pm1, tsys_pm2, tsys_pm3, tsys_pm4 = Tquadratic[0][0], Tquadratic[1][0], Tquadratic[2][0], \
                                                          Tquadratic[3][0]
-                self.serverlog.info(
+                self.logger.info(
                     "Minical : Tsys for PM1 {}, PM2 {}, PM3 {}, PM4 {}".format(tsys_pm1, tsys_pm2, tsys_pm3, tsys_pm4))
                 self.tsysfactor1 = tsys_pm1 / read_pm1
                 self.tsysfactor2 = tsys_pm2 / read_pm2
                 self.tsysfactor3 = tsys_pm3 / read_pm3
                 self.tsysfactor4 = tsys_pm4 / read_pm4
-                self.serverlog.info(
+                self.logger.info(
                     "Minical : Minical derived tsys factors ,{},{},{},{}".format(self.tsysfactor1, self.tsysfactor2,
                                                                                  self.tsysfactor3, self.tsysfactor4))
                 return_vals = {
@@ -1150,14 +1161,14 @@ class WBDCFrontEndServer(Pyro4Server):
                 }
 
 
-                    # self.serverlog.error("Saving minical results not yet implemented.")
+                    # self.logger.error("Saving minical results not yet implemented.")
 
 
             except Exception as err:
-                self.serverlog.error("Couldn't perform minical. Error: {}".format(err), exc_info=True)
+                self.logger.error("Couldn't perform minical. Error: {}".format(err), exc_info=True)
 
         if save_config:
-            self.serverlog.debug("Saving minical data to {}".format(self.settings_file))
+            self.logger.debug("Saving minical data to {}".format(self.settings_file))
             with open(self.settings_file, 'r+') as f:
                 try:
                     data = json.load(f)
@@ -1166,7 +1177,7 @@ class WBDCFrontEndServer(Pyro4Server):
                     json.dump(data, f)
                     f.truncate()
                 except ValueError as err:
-                    self.serverlog.debug("Error updating file: {}".format(err))
+                    self.logger.debug("Error updating file: {}".format(err))
                     f.seek(0)
                     json.dump({'minical': return_vals}, f)
                     f.truncate()
@@ -1181,7 +1192,7 @@ class WBDCFrontEndServer(Pyro4Server):
 # class TestClass(object):
 #     def __init__(self):
 #         self._test_mode = "W"
-#         self.serverlog = logging.getLogger(module_logger.name + ".TestClass")
+#         self.logger = logging.getLogger(module_logger.name + ".TestClass")
 #
 #     @ParserDecorator(['w', 'db'], [1, 2])
 #     def test_method(self, opt):
@@ -1192,7 +1203,12 @@ class WBDCFrontEndServer(Pyro4Server):
 #     def test_method1(self, opt):
 #         raise RuntimeError("Oops")
 #         # return opt
+def main():
 
+    from support.arguments import simple_parse_args
+    parser = simple_parse_args("Launch combined WBDC Front End server").parse_args()
+    wbdc = WBDCFrontEndServer(simulated=parser.simulated)
+    wbdc.launch_server(ns=False,threaded=False,local=parser.local, objectPort=50005)
 
 if __name__ == '__main__':
-    pass
+    main()

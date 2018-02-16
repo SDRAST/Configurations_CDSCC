@@ -15,11 +15,11 @@ from scipy import constants
 import ephem
 import h5py
 import Pyro4
-from pyro4tunneling import Pyro4Tunnel
 
 from tams_source import TAMS_Source
 from support.threading_util import PausableThread, iterativeRun
-from support.pyro import Pyro4Server, AutoReconnectingProxy, async_method, config
+from support.pyro import Pyro4Server, config, async
+from support.trifeni import NameServerTunnel
 from support import weather
 from MonitorControl.Configurations.CDSCC import FO_patching
 import MonitorControl.Configurations.coordinates as coord
@@ -90,10 +90,10 @@ class DSS43K2Server(Pyro4Server):
     server.launch_server(ns_port=50000)
     ```
     """
-
+    # source_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sources.json")
     # source_dir = "/usr/local/projects/TAMS/Observations/dss43/"
-    # source_dir = "/home/ops/dean/sources/"
-    source_dir = "/home/dean/jpl-dsn/sources/"
+    source_dir = "/home/ops/dean/sources/"
+    # source_dir = "/home/dean/jpl-dsn/sources/"
 
     def __init__(self,
                 name='DSS43',
@@ -112,13 +112,14 @@ class DSS43K2Server(Pyro4Server):
         Connect to the APC, Spectrometer, FrontEnd/WBDC and Radiometer servers, and set up
         the roach/power meter correspondance.
         """
-        Pyro4Server.__init__(self, name, logfile=logfile, simulated=simulated, logger=logger)
-        self._tunnel = Pyro4Tunnel(remote_server_name=remote_server_name,
+        self._simulated = simulated
+        super(DSS43K2Server, self).__init__(obj=self, name=name, logfile=logfile, logger=logger)
+        self._ns_tunnel = NameServerTunnel(remote_server_name=remote_server_name,
                                     local=local,
                                     ns_host=ns_host,
                                     ns_port=ns_port,
                                     remote_port=remote_port,
-                                    local_forwarding_port=local_forwarding_port,
+                                    create_tunnel_kwargs=None,
                                     remote_username=remote_username)
         self.logger.info("__init__: self.logger.level: {}".format(self.logger.level))
         self.internal_server_thread = None
@@ -127,22 +128,22 @@ class DSS43K2Server(Pyro4Server):
         self.subscriber_ns_port = ns_port
         # set up the distribution assembly
         if self._simulated:
-            parampath = '/home/dean/jpl-dsn/'
+            # parampath = '/home/dean/jpl-dsn/'
             # self.dist_assmbly = FO_patching.DistributionAssembly(parampath=parampath)
             self.dist_assmbly = FO_patching.DistributionAssembly()
             self._data_dir = "/home/dean/jpl-dsn/dataFiles"
             from MonitorControl.Configurations.CDSCC.apps.server.wbdc_server import WBDCFrontEndServer
-            from MonitorControl.BackEnds.ROACH1.apps.server.SAO_pyro4_publisher_server import SpectrometerServer
-            from MonitorControl.Antenna.apps.server.apc_server import APCServer
+            from MonitorControl.BackEnds.ROACH1.apps.server.SAO_pyro4_server import SpectrometerServer
+            from MonitorControl.Antenna.DSN.apps.server.apc_server import APCServer
 
             self._apc = APCServer(wsn=0,site='CDSCC',dss=43,
                                    simulated=self._simulated,
                                    logfile=self.logfile)
             self._spec = SpectrometerServer(simulated=self._simulated, synth=None, logfile=self.logfile)
             self._wbdc_fe = WBDCFrontEndServer(simulated=self._simulated,
-                                               logfile=self.logfile,
+                                               logfile=self.logfile)
                                             #    patching_file_path=parampath,
-                                               settings_file="/home/dean/jpl-dsn/.WBDCFrontEndsettings.json")
+                                               # settings_file="/home/dean/jpl-dsn/.WBDCFrontEndsettings.json")
             self._hppm = None
             self._rad = None
         elif not self._simulated:
@@ -216,8 +217,9 @@ class DSS43K2Server(Pyro4Server):
 
     def get_version_info(self):
         """Get DSS43Backend version"""
-        from .. import __version__
-        return __version__
+        # from .. import __version__
+        # return __version__
+        return "1.0.0"
 
     def get_logfiles(self):
         """Get the current logfiles for all servers"""
@@ -225,6 +227,10 @@ class DSS43K2Server(Pyro4Server):
                 'spec':self.spec.logfile,
                 'dss43':self.logfile,
                 'wbdc_fe':self.wbdc_fe.logfile}
+
+    @property
+    def simulated(self):
+        return self._simulated
 
     @property
     def project_dir(self):
@@ -272,7 +278,7 @@ class DSS43K2Server(Pyro4Server):
 
     @property
     def tipping_info(self):
-        return self._tipping_info
+        return self._tipping_infow
 
     def set_tipping_running(self, flag):
         self.logger.debug("set_tipping_running: Setting self._tipping_info['running'] to {}".format(flag))
@@ -295,7 +301,7 @@ class DSS43K2Server(Pyro4Server):
         return self._boresight_offset_xel
 
     @Pyro4.oneway
-    @async_method
+    @async.async_method
     def get_initial_state(self):
         self.logger.debug("get_initial_state: Called.")
         self.get_initial_state.cb({'boresight':self._boresight_info,
@@ -305,7 +311,7 @@ class DSS43K2Server(Pyro4Server):
                 'tipping': self._tipping_info})
 
     @Pyro4.oneway
-    @async_method
+    @async.async_method
     def set_callback_handler(self, callback_handler_uri):
         """
         Set the callback handler attribute. This is a Pyro Proxy that we use to call callbacks.
@@ -319,7 +325,7 @@ class DSS43K2Server(Pyro4Server):
             self.cb_handler = callback_handler_uri
             self.logger.warning("Won't be able to automatically reconnect if using simply Pyro4 Proxy.")
         else:
-            self.cb_handler = AutoReconnectingProxy(callback_handler_uri)
+            self.cb_handler = Pyro4.Proxy(callback_handler_uri)
         self.logger.debug("Attempting to wait for availablity of reverse tunnel.")
         while True:
             try:
@@ -366,7 +372,7 @@ class DSS43K2Server(Pyro4Server):
                 self.logger.error("Couldn't access method {}: {}".format(method_name, err))
 
     @Pyro4.oneway
-    @async_method
+    @async.async_method
     def hdwr_method_async(self, controller, method_name, *args, **kwargs):
         """asynchronously call the hdwr_method method"""
         response = self.hdwr_method(controller, method_name, *args, **kwargs)
@@ -389,7 +395,7 @@ class DSS43K2Server(Pyro4Server):
             name (str): The name of the server to which we'd like to establish a connection
         """
         proxy_name = self._proxies[name]
-        proxy = self._tunnel.get_remote_object(proxy_name)
+        proxy = self._ns_tunnel.get_remote_object(proxy_name)
         self.logger.debug("Proxy name: {}, Proxy info {}".format(proxy_name, proxy))
         setattr(self, "_{}".format(name), proxy)
 
@@ -397,7 +403,7 @@ class DSS43K2Server(Pyro4Server):
         """
         Reimplemented from Pyro4Server.
         """
-        # self._tunnel.cleanup()
+        # self._ns_tunnel.cleanup()
         Pyro4Server.close(self)
 
     def roach_patching(self):
@@ -558,7 +564,7 @@ class DSS43K2Server(Pyro4Server):
                 'tsys-factors':tsys_factors}
 
     @Pyro4.oneway
-    @async_method
+    @async.async_method
     def minical_new(self):
         """
         Minical is a procedure that allows us to estimate sky temperature with power meter readout.
@@ -634,7 +640,7 @@ class DSS43K2Server(Pyro4Server):
         pass
 
     @Pyro4.oneway
-    @async_method
+    @async.async_method
     def minical(self):
         self._minical_info['running'] = True
         self.logger.info("Performing minical")
@@ -688,7 +694,7 @@ class DSS43K2Server(Pyro4Server):
             self._boresight_info['running'] = False
 
     @Pyro4.oneway
-    @async_method
+    @async.async_method
     def boresight(self, el_previous_offsets, xel_previous_offsets,
                         n_points=9, iterations=1, integration_time=2, src_obj=None):
         """
@@ -1023,7 +1029,7 @@ class DSS43K2Server(Pyro4Server):
                 'data': list(data)}
     # ==================================================== Tipping =====================================================
     @Pyro4.oneway
-    @async_method
+    @async.async_method
     def tipping(self, save=True):
         """
         Tipping is a routine in which we measure power meter data as we move the antenna from 88 el to 15 el.
@@ -1122,7 +1128,7 @@ class DSS43K2Server(Pyro4Server):
 
     # ================================================Pointing on source================================================
     @Pyro4.oneway
-    @async_method
+    @async.async_method
     def point_onsource(self, src_obj):
         """
         Moving the telescope to point on source can take some time. This function moves the antenna while simultaneously
@@ -1565,7 +1571,7 @@ class DSS43K2Server(Pyro4Server):
 
 
     @Pyro4.oneway
-    @async_method
+    @async.async_method
     def record_data(self,
                     ROACH_integration_time=5,
                     n_cycles=2,
@@ -1684,7 +1690,7 @@ class DSS43K2Server(Pyro4Server):
             # If we're not registered on a Pyro4.Daemon already, then we have to do it ourselves, and register
             # the current object on said Daemon.
             self.logger.debug("This object currently not registered on the nameserver. Doing so now.")
-            self.internal_server_thread = threading.Thread(target=self.launch_server, kwargs={"ns_port":self._tunnel.ns_port,"threaded":True})
+            self.internal_server_thread = threading.Thread(target=self.launch_server, kwargs={"ns_port":self._ns_tunnel.ns_port,"threaded":True})
             self.internal_server_thread.daemon = True
             self.internal_server_thread.start()
             time.sleep(2.0)
@@ -1698,7 +1704,7 @@ class DSS43K2Server(Pyro4Server):
         #     time.sleep(1.0)
 
     @Pyro4.oneway
-    @async_method
+    @async.async_method
     def interrupt_recording(self):
         """
         Stop data acquisition. This will generally come in the middle of an observation.
@@ -1774,7 +1780,7 @@ class DSS43K2Server(Pyro4Server):
     # ================================ WBDC/FE Callbacks ================================
 
     @Pyro4.oneway
-    @async_method
+    @async.async_method
     def start_pm_publishing(self, update_rate=2, worker_cb_info=None):
         """Start the pm worker"""
         self.logger.info("Starting PM publishing!")
@@ -1791,12 +1797,12 @@ class DSS43K2Server(Pyro4Server):
                                                     logger= logger,
                                                     socket_info=self.start_pm_publishing.socket_info)
 
-        self.pm_recording_worker._async_method = True
+        # self.pm_recording_worker._async.async_method = True
         self.pm_recording_worker.start()
         self.start_pm_publishing.cb()
 
     @Pyro4.oneway
-    @async_method
+    @async.async_method
     def pause_pm_publishing(self):
         """Pause the pm publishing"""
         if self.pm_recording_worker:
@@ -1804,7 +1810,7 @@ class DSS43K2Server(Pyro4Server):
         self.pause_pm_publishing.cb()
 
     @Pyro4.oneway
-    @async_method
+    @async.async_method
     def stop_pm_publishing(self):
         """Stop the pm publishing"""
         if self.pm_recording_worker:
@@ -1814,7 +1820,7 @@ class DSS43K2Server(Pyro4Server):
         self.stop_pm_publishing.cb()
 
     @Pyro4.oneway
-    @async_method
+    @async.async_method
     def get_pm_attens(self):
         """Get WBDC attenuation"""
         try:
@@ -1829,7 +1835,7 @@ class DSS43K2Server(Pyro4Server):
                                'results': results})
 
     @Pyro4.oneway
-    @async_method
+    @async.async_method
     def get_tsys(self):
         try:
             results = self.wbdc_fe.get_tsys()
@@ -1840,7 +1846,7 @@ class DSS43K2Server(Pyro4Server):
             self.get_tsys.cb({"status":msg})
 
     @Pyro4.oneway
-    @async_method
+    @async.async_method
     def get_tsys_factors(self):
         """Get tsys factors from WBDC"""
         try:
@@ -1852,7 +1858,7 @@ class DSS43K2Server(Pyro4Server):
             self.get_tsys_factors.cb({"status":msg})
 
     @Pyro4.oneway
-    @async_method
+    @async.async_method
     def get_WBDCFrontEnd_state(self):
         """get the WBDC Front End state, asynchronously"""
         try:
@@ -1866,7 +1872,7 @@ class DSS43K2Server(Pyro4Server):
 
     # ================================ APC Callbacks ================================
     @Pyro4.oneway
-    @async_method
+    @async.async_method
     def start_apc_publishing(self, update_rate=2, worker_cb_info=None):
         """Start the apc worker"""
         self.logger.info("Starting APC publishing!")
@@ -1882,12 +1888,12 @@ class DSS43K2Server(Pyro4Server):
                                         logger=logger,
                                         cb_info=worker_cb_info,
                                          socket_info=self.start_apc_publishing.socket_info)
-        self.apc_recording_worker._async_method = True
+        # self.apc_recording_worker._async.async_method = True
         self.apc_recording_worker.start()
         self.start_apc_publishing.cb()
 
     @Pyro4.oneway
-    @async_method
+    @async.async_method
     def pause_apc_publishing(self):
         """Pause the apc publishing"""
         if self.apc_recording_worker:
@@ -1895,7 +1901,7 @@ class DSS43K2Server(Pyro4Server):
         self.pause_apc_publishing.cb()
 
     @Pyro4.oneway
-    @async_method
+    @async.async_method
     def stop_apc_publishing(self):
         """Stop the apc publishing"""
         if self.apc_recording_worker:
@@ -1905,7 +1911,7 @@ class DSS43K2Server(Pyro4Server):
         self.stop_apc_publishing.cb()
 
     @Pyro4.oneway
-    @async_method
+    @async.async_method
     def get_azel(self):
         """Call APC get_azel asynchronously"""
         # self.logger.debug("get_azel: Called.")
@@ -1919,7 +1925,7 @@ class DSS43K2Server(Pyro4Server):
 
 
     @Pyro4.oneway
-    @async_method
+    @async.async_method
     def set_offset_el(self, value):
         """Set EL offset asynchronously"""
         self.logger.debug("Setting el offset to {}".format(value))
@@ -1929,7 +1935,7 @@ class DSS43K2Server(Pyro4Server):
         self.set_offset_el.cb(resp)
 
     @Pyro4.oneway
-    @async_method
+    @async.async_method
     def set_offset_xel(self, value):
         """Set xEL offset asynchronously"""
         self.logger.debug("Setting xel offset to {}".format(value))
@@ -1939,7 +1945,7 @@ class DSS43K2Server(Pyro4Server):
         self.set_offset_xel.cb(resp)
 
     @Pyro4.oneway
-    @async_method
+    @async.async_method
     def get_offsets(self):
         """
         Call the APC get_offsets method asynchronously
@@ -1948,7 +1954,7 @@ class DSS43K2Server(Pyro4Server):
         self.get_offsets.cb(results)
 
     @Pyro4.oneway
-    @async_method
+    @async.async_method
     def onsource(self):
         """
         Call the APC onsource method asynchronously
@@ -1958,7 +1964,7 @@ class DSS43K2Server(Pyro4Server):
 
     # ================================ Spectrometer Callbacks ================================
     @Pyro4.oneway
-    @async_method
+    @async.async_method
     def start_rms_publishing(self, update_rate=31.19, worker_cb_info=None):
         """Start the RMS worker"""
         self.logger.info("Starting RMS publishing!")
@@ -1973,12 +1979,12 @@ class DSS43K2Server(Pyro4Server):
 
         self.rms_recording_worker = RMSWorker(self, self.spec, update_rate,
                                     logger=logger, cb_info=worker_cb_info, socket_info=self.start_rms_publishing.socket_info)
-        self.rms_recording_worker._async_method = True
+        # self.rms_recording_worker._async.async_method = True
         self.rms_recording_worker.start()
         self.start_rms_publishing.cb()
 
     @Pyro4.oneway
-    @async_method
+    @async.async_method
     def pause_rms_publishing(self):
         """Pause the apc publishing"""
         if self.rms_recording_worker:
@@ -1986,7 +1992,7 @@ class DSS43K2Server(Pyro4Server):
         self.pause_rms_publishing.cb()
 
     @Pyro4.oneway
-    @async_method
+    @async.async_method
     def stop_rms_publishing(self):
         """Stop the apc publishing"""
         if self.rms_recording_worker:
@@ -1996,7 +2002,7 @@ class DSS43K2Server(Pyro4Server):
         self.stop_rms_publishing.cb()
 
     @Pyro4.oneway
-    @async_method
+    @async.async_method
     def get_current_accum_all(self):
         """Get the current accumulations for all the ROACHs"""
         self.logger.debug("get_current_accum_all: Called.")
@@ -2004,7 +2010,7 @@ class DSS43K2Server(Pyro4Server):
         self.get_current_accum_all.cb({"success":True, "spectra":spectra})
 
     @Pyro4.oneway
-    @async_method
+    @async.async_method
     def get_current_accum(self, i):
         """Get the current accumulation in a specific ROACH"""
         self.logger.debug("get_current_accum: Called.")
@@ -2025,7 +2031,7 @@ class DSS43K2Server(Pyro4Server):
             self.logger.error("Couldn't create FITS file. Error: {}".format(err), exc_info=True)
 
     @Pyro4.oneway
-    @async_method
+    @async.async_method
     def get_adc_gains(self, **kwargs):
         """Get ADC gains"""
         try:
@@ -2039,7 +2045,7 @@ class DSS43K2Server(Pyro4Server):
         self.get_adc_gains.cb({"status": status, "gains":gains})
 
     @Pyro4.oneway
-    @async_method
+    @async.async_method
     def calc_rms(self, i):
         """Calculate ADC RMS for a specific ROACH"""
         try:
@@ -2053,7 +2059,7 @@ class DSS43K2Server(Pyro4Server):
         self.calc_rms.cb({"status":status, "rms":[i,rms]})
 
     @Pyro4.oneway
-    @async_method
+    @async.async_method
     def set_adc_gain(self, i, val):
         """Set ADC gain for a specific ROACH"""
         val = float(val)
@@ -2067,7 +2073,7 @@ class DSS43K2Server(Pyro4Server):
         self.set_adc_gain.cb({"status":status,"gain":[i,val]})
 
     @Pyro4.oneway
-    @async_method
+    @async.async_method
     def calibrate_adc_all(self):
         """Calibrate all the ADCs"""
         results = {}
@@ -2082,7 +2088,7 @@ class DSS43K2Server(Pyro4Server):
         self.calibrate_adc_all.cb(results)
 
     @Pyro4.oneway
-    @async_method
+    @async.async_method
     def initialize_adc_all(self):
         """Initialize all the ADCs"""
         results = {}
@@ -2097,7 +2103,7 @@ class DSS43K2Server(Pyro4Server):
         self.initialize_adc_all.cb(results)
 
     @Pyro4.oneway
-    @async_method
+    @async.async_method
     def set_fft_shift_all(self):
         """Set the FFT shift for all FPGAs to 63"""
         results = {}
@@ -2113,7 +2119,7 @@ class DSS43K2Server(Pyro4Server):
         self.set_fft_shift_all.cb(results)
 
     @Pyro4.oneway
-    @async_method
+    @async.async_method
     def sync_start_all(self):
         """Synchronize vector accumulators for all FPGAs"""
         results = {}
@@ -2128,7 +2134,7 @@ class DSS43K2Server(Pyro4Server):
         self.sync_start_all.cb(results)
 
     @Pyro4.oneway
-    @async_method
+    @async.async_method
     def get_adc_samples_all(self):
         """Get ADC samples for all ROACHs"""
         results = {}
@@ -2143,7 +2149,7 @@ class DSS43K2Server(Pyro4Server):
         self.get_adc_samples_all.cb(results)
 
     @Pyro4.oneway
-    @async_method
+    @async.async_method
     def calibrate_adc(self, roach):
         """asynchronously run the ADC calibrate method"""
         try:
@@ -2156,7 +2162,7 @@ class DSS43K2Server(Pyro4Server):
         self.calibrate_adc.cb({'status': msg})
 
     @Pyro4.oneway
-    @async_method
+    @async.async_method
     def initialize_adc(self, roach):
         """asynchronously run the ADC initialize method"""
         try:
@@ -2169,7 +2175,7 @@ class DSS43K2Server(Pyro4Server):
         self.initialize_adc.cb({'status':msg})
 
     @Pyro4.oneway
-    @async_method
+    @async.async_method
     def set_fft_shift(self, roach):
         """asynchronously set fft shift to 63"""
         try:
@@ -2183,7 +2189,7 @@ class DSS43K2Server(Pyro4Server):
         self.set_fft_shift.cb({'status': msg})
 
     @Pyro4.oneway
-    @async_method
+    @async.async_method
     def sync_start(self, roach):
         """asynchronously start vector accumulators"""
         try:
@@ -2197,7 +2203,7 @@ class DSS43K2Server(Pyro4Server):
 
 
     @Pyro4.oneway
-    @async_method
+    @async.async_method
     def get_adc_samples(self, roach):
         """asynchronously get ADC samples"""
         try:
@@ -2245,7 +2251,7 @@ class DSS43K2Server(Pyro4Server):
         return body_dict
 
     @Pyro4.oneway
-    @async_method
+    @async.async_method
     def get_sources(self, band=None, calc_azel=False, get_verifiers=True):
         """
         Get catalog/known maser source/observation information from sources.json file
@@ -2313,7 +2319,7 @@ class DSS43K2Server(Pyro4Server):
         self.get_sources.cb(response_srcs)
 
     @Pyro4.oneway
-    @async_method
+    @async.async_method
     def get_verifiers(self, calc_azel=False):
         """
         Get verifier (calibrator) information from verifiers.json file
@@ -2348,7 +2354,7 @@ class DSS43K2Server(Pyro4Server):
 
     # ================================================Miscellenous====================================================
     @Pyro4.oneway
-    @async_method
+    @async.async_method
     def get_simulator_status(self):
         """Get the simulator status for all hardware controllers"""
         self.logger.debug("get_simulator_status: Called.")
@@ -2362,7 +2368,7 @@ class DSS43K2Server(Pyro4Server):
         self.get_simulator_status.cb(status)
 
     @Pyro4.oneway
-    @async_method
+    @async.async_method
     def connect_to_hardware(self, controller, *args):
         if controller == 'apc':
             self.logger.debug("Connecting APC to hardware, workstation {}".format(args[0]))
@@ -2372,7 +2378,7 @@ class DSS43K2Server(Pyro4Server):
         self.connect_to_hardware.cb(controller)
 
     @Pyro4.oneway
-    @async_method
+    @async.async_method
     def connect_to_simulator(self, controller):
         self.logger.debug("Connecting {} to simulator".format(controller))
         self.hdwr_method(controller, "simulate")
@@ -2431,3 +2437,14 @@ class DSS43K2Server(Pyro4Server):
         t = (mean1 - mean2) / (np.sqrt((sigma1**2 / n1) + (sigma2**2 / n2)))
         mu = ((sigma1**2/n1) + (sigma2**2/n2))**2 / ((sigma1**4/(n1**2 * (n1-1))) + (sigma2**4/(n2**2 * (n2-1))))
         return t, mu
+
+
+def main():
+
+    from support.arguments import simple_parse_args
+    parser = simple_parse_args("Launch (deprecated) DSS43K2 master server").parse_args()
+    dss43 = DSS43K2Server(simulated=parser.simulated, ns_port=parser.ns_port)
+    dss43.launch_server(threaded=False, ns=True, objectPort=50001, local=parser.local)
+
+if __name__ == '__main__':
+    main()

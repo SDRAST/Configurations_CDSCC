@@ -5,14 +5,14 @@ import time
 
 import Pyro4
 
-from support.pyro import async_method
+from support.pyro import async
 from support.threading_util import PausableThread, iterativeRun
 
 module_logger = logging.getLogger(__name__)
 
 class LongRunningWorker(PausableThread):
 
-    @async_method
+    @async.async_method
     def __init__(self, parent, client, method, method_args=None, method_kwargs=None,
                         logger=None, name="LongRunningWorker", **kwargs):
         PausableThread.__init__(self, name=name, **kwargs)
@@ -47,7 +47,8 @@ class RMSWorker(PausableThread):
     """
     A thread that asks for Power Meter information at a set interval
     """
-    @async_method
+    
+    @async.async_method
     def __init__(self, parent, client, update_rate, logger=None, **kwargs):
         PausableThread.__init__(self, name='RMSWorker', **kwargs)
         if logger:
@@ -102,7 +103,7 @@ class PowerMeterWorker(PausableThread):
     """
     A thread that asks for Power Meter information at a set interval
     """
-    @async_method
+    @async.async_method
     def __init__(self, parent, wbdc_client, update_rate,logger=None, **kwargs):
         PausableThread.__init__(self, name='PowerMeterWorker', **kwargs)
         if logger:
@@ -163,7 +164,7 @@ class APCWorker(PausableThread):
     (offsets, current az/el, whether antenna is on source)
     at a set interval
     """
-    @async_method
+    @async.async_method
     def __init__(self, parent, apc_client, update_rate, logger=None, **kwargs):
 
         PausableThread.__init__(self, name='APCWorker', **kwargs)
@@ -223,7 +224,7 @@ class APCWorker(PausableThread):
 
 class TwoBeamNodWorker(PausableThread):
 
-    @async_method
+    @async.async_method
     def __init__(self, parent, apc_client, n_cycles, time_per_scan, src_obj, init_el, init_xel, **kwargs):
         """
         Run the nodding routine
