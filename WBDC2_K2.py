@@ -8,7 +8,7 @@ from MonitorControl import ClassInstance, Device, Observatory,Switch
 from MonitorControl.Antenna import Telescope
 from MonitorControl.Antenna.DSN import DSN_Antenna
 from MonitorControl.BackEnds import Backend
-from MonitorControl.BackEnds.ROACH1.SAOspec import SAOspec
+from MonitorControl.BackEnds.ROACH1 import SAOspec
 from MonitorControl.Configurations.CDSCC.FO_patching import DistributionAssembly
 from MonitorControl.FrontEnds import FrontEnd
 from MonitorControl.FrontEnds.Kband import K_4ch
