@@ -1211,7 +1211,7 @@ def main():
     parser = simple_parse_args("Launch combined WBDC Front End server").parse_args()
     wbdc = WBDCFrontEndServer(simulated=parser.simulated)
     wbdc.perform_minical()
-    wbdc.launch_server(ns=False,threaded=False,local=parser.local, objectPort=50004)
+    wbdc.launch_server(ns=False,threaded=False,local=parser.local, objectPort=50004, objectId="WBDCFE")
 
 if __name__ == '__main__':
     main()
