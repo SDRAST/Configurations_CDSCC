@@ -1207,7 +1207,7 @@ def main():
 
     from support.arguments import simple_parse_args
     from support.logs import setup_logging
-    setup_logging(logging.DEBUG)
+    setup_logging(logger=logging.getLogger(),logLevel=logging.DEBUG)
     parser = simple_parse_args("Launch combined WBDC Front End server").parse_args()
     wbdc = WBDCFrontEndServer(simulated=parser.simulated)
     wbdc.perform_minical()
