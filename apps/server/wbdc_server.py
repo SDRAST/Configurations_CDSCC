@@ -1206,9 +1206,11 @@ class WBDCFrontEndServer(Pyro4Server):
 def main():
 
     from support.arguments import simple_parse_args
+    from support.logs import setup_logging
+    setup_logging(logging.DEBUG)
     parser = simple_parse_args("Launch combined WBDC Front End server").parse_args()
     wbdc = WBDCFrontEndServer(simulated=parser.simulated)
-    wbdc.launch_server(ns=False,threaded=False,local=parser.local, objectPort=50005)
+    wbdc.launch_server(ns=False,threaded=False,local=parser.local, objectPort=50004)
 
 if __name__ == '__main__':
     main()
