@@ -106,7 +106,7 @@ def station_configuration(equipment=None, roach_loglevel=logging.WARNING, hardwa
   equipment['IF_switch'] = IFswitch("Patch Panel", equipment)
   patch_panel = equipment['IF_switch']
   equipment['Backend'] = ClassInstance(Backend, SAOspec, "SAO spectrometer",
-                                       hardware = hardware["Backend"],
+                                       hardware=hardware["Backend"],
                                 inputs = {'SAO1': patch_panel.outputs['SAO1'],
                                           'SAO2': patch_panel.outputs['SAO2'],
                                           'SAO3': patch_panel.outputs['SAO3'],
