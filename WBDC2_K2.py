@@ -4,7 +4,7 @@ Configuration for DSS-43 with front end K2 and receiver WBDC2
 import copy
 import logging
 
-from MonitorControl import ClassInstance, Device, Observatory,Switch
+from MonitorControl import ClassInstance, Device, Observatory, Switch
 from MonitorControl.Antenna import Telescope
 from MonitorControl.Antenna.DSN import DSN_Antenna
 from MonitorControl.BackEnds import Backend
@@ -66,7 +66,10 @@ class IFswitch(Device):
       name += "I2"
     return name
 
-def station_configuration(equipment=None, roach_loglevel=logging.WARNING, hardware=None):
+def station_configuration(
+    equipment=None,
+    roach_loglevel=logging.WARNING,
+    hardware=None):
   """
   Configuration for the K-band system on DSS-43 using WBDC2
 
@@ -106,7 +109,7 @@ def station_configuration(equipment=None, roach_loglevel=logging.WARNING, hardwa
   equipment['IF_switch'] = IFswitch("Patch Panel", equipment)
   patch_panel = equipment['IF_switch']
   equipment['Backend'] = ClassInstance(Backend, SAOspec, "SAO spectrometer",
-                                       hardware = hardware["Backend"],
+                                       hardware=hardware["Backend"],
                                 inputs = {'SAO1': patch_panel.outputs['SAO1'],
                                           'SAO2': patch_panel.outputs['SAO2'],
                                           'SAO3': patch_panel.outputs['SAO3'],
