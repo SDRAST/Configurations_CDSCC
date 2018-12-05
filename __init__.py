@@ -86,15 +86,15 @@ mech = {43:{'diam': 70,
             'type': 'BWG'}}
 
 wrap = {43: {'stow_az': 17,
-             'wrap':    {'center': 135}},
-        45: {'stow_az': 0,
-            'wrap':     {'center':  45}},
-        34: {'stow_az': 0,
-             'wrap':    {'center':  45}},
-        35: {'stow_az': 0,
-             'wrap':    {'center':  45}},
-        36: {'stow_az': 0,
-             'wrap':    {'center':  45}}}
+             'wrap':    {'center': 135,'dir':'CW'}},
+        45: {'stow_az': 45,
+            'wrap':     {'center':  45,'dir':'CW'}},
+        34: {'stow_az': 45,
+             'wrap':    {'center':  45,'dir':'CW'}},
+        35: {'stow_az': 45,
+             'wrap':    {'center':  45,'dir':'CW'}},
+        36: {'stow_az': 45,
+             'wrap':    {'center':  45,'dir':'CW'}}}
 
 gain = {43: {"L": 61.04,
              "S": 63.59,
