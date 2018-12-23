@@ -11,7 +11,7 @@ from MonitorControl.BackEnds import Backend
 from MonitorControl.BackEnds.ROACH1 import SAOspec
 from MonitorControl.Configurations.CDSCC.FO_patching import DistributionAssembly
 from MonitorControl.FrontEnds import FrontEnd
-from MonitorControl.FrontEnds.Kband import K_4ch
+from MonitorControl.FrontEnds.K_band import K_4ch
 from MonitorControl.Receivers import Receiver
 from MonitorControl.Receivers.WBDC.WBDC2 import WBDC2
 from MonitorControl.Antenna.DSN import DSN_Antenna
@@ -30,7 +30,7 @@ class IFswitch(Device):
 
     Gets the input port names from the receiver outputs
     """
-    mylogger = logging.getLogger(logger.name+".IFswitch")
+    self.logger = logging.getLogger(logger.name+".IFswitch")
     da = DistributionAssembly()
     signals = da.get_inputs('ROACH1')
     if inputs == None:
@@ -84,8 +84,10 @@ def station_configuration(
         "Receiver":False,
         "Backend":False
       }
+  logger.debug("station_configuration: hardware is %s", hardware)
   if equipment is None:
       equipment = {}
+  logger.debug("station_configuration: equipment is %s", equipment)
   observatory = Observatory("Canberra")
   # equipment['Telescope'] = Telescope(observatory, dss=43)
   # antenna = equipment['Telescope']
