@@ -79,6 +79,7 @@ class DistributionAssembly(object):
     self.parampath = parampath
     self.paramfile = paramfile
     self.logger = logging.getLogger(module_logger.name+".DistributionAssembly")
+    self.logger.debug("__init__: initializing")
     self._open_patchpanel_spreadsheet()
     self.patching = self.get_patching()
 
