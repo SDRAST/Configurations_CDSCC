@@ -11,7 +11,7 @@ from MonitorControl.BackEnds import Backend
 from MonitorControl.BackEnds.ROACH1 import SAOspec
 from MonitorControl.Configurations.CDSCC.FO_patching import DistributionAssembly
 from MonitorControl.FrontEnds import FrontEnd
-from MonitorControl.FrontEnds.Kband import K_4ch
+from MonitorControl.FrontEnds.K_band import K_4ch
 from MonitorControl.Receivers import Receiver
 from MonitorControl.Receivers.WBDC.WBDC2 import WBDC2
 from MonitorControl.Antenna.DSN import DSN_Antenna
@@ -30,7 +30,8 @@ class IFswitch(Device):
 
     Gets the input port names from the receiver outputs
     """
-    mylogger = logging.getLogger(logger.name+".IFswitch")
+    self.logger = logging.getLogger(logger.name+".IFswitch")
+    self.logger.debug("IFswitch: initializing")
     da = DistributionAssembly()
     signals = da.get_inputs('ROACH1')
     if inputs == None:
@@ -84,28 +85,32 @@ def station_configuration(
         "Receiver":False,
         "Backend":False
       }
+  logger.debug("station_configuration: hardware is %s", hardware)
   if equipment is None:
       equipment = {}
+  logger.debug("station_configuration: equipment is %s", equipment)
   observatory = Observatory("Canberra")
   # equipment['Telescope'] = Telescope(observatory, dss=43)
   # antenna = equipment['Telescope']
-  equipment['Antenna'] = DSN_Antenna(observatory, dss=43, hardware=hardware["Antenna"])
+  equipment['Antenna'] = DSN_Antenna(observatory, dss=43, 
+                                     hardware=hardware["Antenna"])
   # Alternatively, I think we could do the following:
   # equipment['Antenna'] = ClassInstance(Telescope, DSN_Antenna, observatory,
   #                                       dss=43, hardware=False)
   antenna = equipment['Antenna']
-  equipment['FrontEnd'] = ClassInstance(FrontEnd, K_4ch, "K", hardware=hardware["FrontEnd"],
+  equipment['FrontEnd'] = ClassInstance(FrontEnd, K_4ch, "K", 
+                                        hardware=hardware["FrontEnd"],
                            inputs = {'F1': antenna.outputs[antenna.name],
                                      'F2': antenna.outputs[antenna.name]},
-                           output_names = [['F1P1','F1P2'],
-                                           ['F2P1','F2P2']])
+                           output_names = [['F1E','F1H'],
+                                           ['F2E','F2H']])
   front_end = equipment['FrontEnd']
   equipment['Receiver'] = ClassInstance(Receiver, WBDC2, "WBDC-2",
                                         hardware=hardware["Receiver"],
-                                  inputs = {'F1P1': front_end.outputs["F1P1"],
-                                            'F1P2': front_end.outputs["F1P2"],
-                                            'F2P1': front_end.outputs["F2P1"],
-                                            'F2P2': front_end.outputs["F2P2"]})
+                                  inputs = {'F1P1': front_end.outputs["F1E"],
+                                            'F1P2': front_end.outputs["F1H"],
+                                            'F2P1': front_end.outputs["F2E"],
+                                            'F2P2': front_end.outputs["F2H"]})
   equipment['IF_switch'] = IFswitch("Patch Panel", equipment)
   patch_panel = equipment['IF_switch']
   equipment['Backend'] = ClassInstance(Backend, SAOspec, "SAO spectrometer",
