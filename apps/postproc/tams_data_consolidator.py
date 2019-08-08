@@ -7,9 +7,9 @@ import time
 import astropy.units as u
 import astropy.constants as constants
 import ephem
-import matplotlib.pyplot as plt
 import numpy as np
 import h5py
+# import matplotlib.pyplot as plt
 
 from Astronomy.Ephem import SerializableBody
 from .gbtidlfits import GBTIDLFITSFile
@@ -446,6 +446,7 @@ class TAMSDataConsolidator(object):
         # module_logger.debug("TAMSDataConsolidator.dump_gbtidlfits: Initial LST {}".format(lst))
 
         scans = self.obs_data["Backend"][self.reference_roach]["scan"]
+
         tsys = self.obs_data["FrontEnd"]["tsys"]
 
         # scans = self.df['scan_number'][...]
@@ -456,11 +457,11 @@ class TAMSDataConsolidator(object):
         spectra_roach2 = self.obs_data["Backend"]["sao64k-1"]["accum"]
         spectra_roach3 = self.obs_data["Backend"]["sao64k-1"]["accum"]
         spectra_roach4 = self.obs_data["Backend"]["sao64k-1"]["accum"]
+        print(spectra_roach1.shape)
         # spectra_roach1 = self.df['spectraCh1'][...]
         # spectra_roach2 = self.df['spectraCh2'][...]
         # spectra_roach3 = self.df['spectraCh3'][...]
         # spectra_roach4 = self.df['spectraCh4'][...]
-        module_logger.debug("TAMSDataConsolidator.dump_gbtidlfits: Took {:.4f} seconds to get spectral data".format(time.time() - t1))
 
         az = self.obs_data["Antenna"]["az"]
         el = self.obs_data["Antenna"]["el"]
@@ -468,7 +469,9 @@ class TAMSDataConsolidator(object):
         # az = azel[:, 0]
         # el = azel[:, 1]
 
-        module_logger.debug("TAMSDataConsolidator.dump_gbtidlfits: Rearranging power meter, az/el and spectra data...")
+        module_logger.debug(
+            ("TAMSDataConsolidator.dump_gbtidlfits: "
+             "Rearranging power meter, az/el and spectra data..."))
 
         t0 = time.time()
         n_channels = len(self.obs_data["Backend"])
@@ -494,17 +497,26 @@ class TAMSDataConsolidator(object):
             tsys[:, 2] = np.copy(tsys[:, 0])
             tsys[:, 1] = np.copy(tsys[:, 3])
 
-        n_scans = int(np.amax(scans)) # the number of scans that were taken in the observation
+        max_scans = int(np.amax(scans)) # the number of scans that were taken in the observation
+        min_scans = int(np.amin(scans))
+        n_scans = max_scans - min_scans + 1
+        module_logger.debug(
+            ("TAMSDataConsolidator.dump_gbtidlfits: "
+             "number of scans: {}".format(n_scans)))
+
         # get the size of all the scans arrays, and find the minimum of this. We lose some information by doing this.
         scan_sizes = [scans[scans == i].shape[0]
-                      for i in xrange(1, 1 + n_scans)]
+                      for i in xrange(min_scans, 1 + max_scans)]
         min_size = np.amin(scan_sizes)
         n_rows = n_scans * min_size # the total number of rows per channel.
 
         scan_filter = np.array([np.where(scans == i)[0][:min_size]
-                                for i in xrange(1, 1 + int(n_scans))])
+                                for i in xrange(min_scans, 1 + max_scans)])
+        print(scan_filter)
+        print(scan_filter.shape)
         scan_filter = scan_filter.reshape(n_rows)
-
+        print(scan_filter.shape)
+        print(scan_filter)
         scan_flat = np.repeat(scans[scan_filter], n_channels)
 
         # original size of tsys (number of total records, n_channels). After filtering if becomes (n_rows, n_channels)
@@ -585,7 +597,7 @@ class TAMSDataConsolidator(object):
             ("TAMSDataConsolidator.dump_gbtidlfits: "
              "Populating keywords and writing data to SDFITS file..."))
         t0 = time.time()
-        sdtab["DATE-OBS"][:] = str(initial_dt)
+        sdtab["DATE-OBS"][:] = initial_dt.isoformat()
         sdtab["LST"][:] = lst_seconds
         sdtab["OBSERVER"][:] = 'TAMS Team'
         sdtab["EXPOSURE"][:] = self.meta_data["integration_time"]
