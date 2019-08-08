@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import h5py
 
-from support.Ephem import SerializableBody
+from Astronomy.Ephem import SerializableBody
 from .gbtidlfits import GBTIDLFITSFile
 
 module_logger = logging.getLogger(__name__)
