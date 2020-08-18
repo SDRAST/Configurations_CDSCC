@@ -32,7 +32,7 @@ class OpenpyxlCompatibility(object):
 
   def __init__(self):
     version_info = openpyxl.__version__
-    major, minor, baby = list(map(int, version_info.split(".")))
+    major, minor, baby = map(int, version_info.split("."))
     self.major = major
     self.minor = minor
     self.baby = baby
@@ -92,7 +92,7 @@ class DistributionAssembly(object):
     try:
       param_file_path = os.path.join(self.parampath,self.paramfile)
       self.workbook = openpyxl.load_workbook(param_file_path)
-    except IOError as details:
+    except IOError, details:
       self.logger.error(
       "_open_patchpanel_spreadsheet: loading spreadsheet failed with IO error.",
                         exc_info=True)
@@ -115,7 +115,7 @@ class DistributionAssembly(object):
     column_names = get_column_names(self.worksheet)
     self.logger.debug("_open_patchpanel_spreadsheet: columns found in %s:",
                       self.sheet_names[-1])
-    for name in list(column_names.keys()):
+    for name in column_names.keys():
       if column_names[name]:
         self.logger.debug("_open_patchpanel_spreadsheet: %s: %s",
                           name,column_names[name])
@@ -218,7 +218,7 @@ class DistributionAssembly(object):
 
   def report_patching(self):
     IF_report = {}
-    for IF in list(self.patching.keys()):
+    for IF in self.patching.keys():
       rx_chan = self.patching[IF]
       IF_report[IF] = "R"+str(rx_chan["Receiver"]) \
                      +"-"+str(rx_chan["Band"]) \

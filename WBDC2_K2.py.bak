@@ -47,7 +47,7 @@ class IFswitch(Device):
     else:
       self.inputs = inputs
     Device.__init__(self, name, inputs=self.inputs, output_names=output_names)
-    innames = list(self.inputs.keys())
+    innames = self.inputs.keys()
     innames.sort()
     for name in output_names:
       index = output_names.index(name)
