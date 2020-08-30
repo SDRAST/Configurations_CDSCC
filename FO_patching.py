@@ -107,22 +107,28 @@ class DistributionAssembly(object):
                         "_open_patchpanel_spreadsheet: attribute error.",
                         exc_info=True)
       raise AttributeError
+    # get the current worksheet
     self.sheet_names = compat.get_sheet_names(self.workbook) #.get_sheet_names()
     self.sheet_names.sort()
     self.logger.debug("_open_patchpanel_spreadsheet: sheet names: %s",
                       str(self.sheet_names))
+    # last worksheet by date YEAR/DOY
     self.worksheet = compat.get_sheet_by_name(self.workbook, self.sheet_names[-1])
-    column_names = get_column_names(self.worksheet)
+    column_numbers = get_column_names(self.worksheet)
     self.logger.debug("_open_patchpanel_spreadsheet: columns found in %s:",
                       self.sheet_names[-1])
-    for name in list(column_names.keys()):
-      if column_names[name]:
+    # find the current patching
+    for number in list(column_numbers.keys()):
+      if column_numbers[number]:
         self.logger.debug("_open_patchpanel_spreadsheet: %s: %s",
-                          name,column_names[name])
+                          number ,column_numbers[number])
     self.current_patch()
     self.logger.debug("_open_patchpanel_spreadsheet: current patch is %s",
                       self.patchname)
     self.column = get_column_id(self.worksheet, self.patchname)
+    self.logger.debug("_open_patchpanel_spreadsheet: active column is %s", 
+                      self.column)
+    
 
   def current_patch(self):
     """
@@ -132,19 +138,24 @@ class DistributionAssembly(object):
     row 2 (index 1) until it finds a non-empty cell.
     """
     self.patchname = None
-    for column in range(5,10):
-      self.logger.debug("current_patch: checking column %d", column)
-      if compat.cell(self.worksheet, row=1, column=column).value:
-        current = compat.cell(self.worksheet, row=1, column=column).value
-        self.logger.debug("current_patch: found {}".format(current.encode("utf-8")))
+    for column_idx in range(1,11):
+      self.logger.debug("current_patch: checking column index %d", column_idx)
+      cell_value = compat.cell(self.worksheet, row=1, 
+                                     column=column_idx).value
+      self.logger.debug("current_patch: cell value = %s", cell_value)
+      if cell_value:
+        current = compat.cell(self.worksheet, row=1, 
+                                            column=column_idx).value
+        #self.logger.debug("current_patch: found {}".format(current.encode("utf-8")))
+        self.logger.debug("current_patch: found {}".format(current))
         if self.patchname:
           self.logger.error("current_patch: ambiguity: {} or {}".format(
-              self.patchname, compat.cell(self.worksheet, row=1, column=column).value
-          ))
+              self.patchname, compat.cell(self.worksheet, row=1, 
+                                                      column=column_idx).value))
           raise RuntimeException("patch ambiguity")
         else:
           # self.patchname = self.worksheet.cell(row=0,column=column).value
-          self.patchname = compat.cell(self.worksheet,row=0,column=column).value
+          self.patchname = compat.cell(self.worksheet,row=0,column=column_idx).value
           break
       else:
         pass
@@ -154,7 +165,7 @@ class DistributionAssembly(object):
     """
     Returns value for column name in the row, including merged cells
     """
-    column = get_column_id(self.worksheet, column_name)
+    column = get_column_id(self.worksheet, column_name)-OPENPYXL_INDEX
     column_data = get_column(self.worksheet, column_name)
     while row > 0:
       if compat.cell(self.worksheet, row=row, column=column).value:
@@ -205,12 +216,13 @@ class DistributionAssembly(object):
     IF_channel = {}
     for IF in range(1,17):
       rx_chan = {}
+      self.logger.debug("get_patching: checking IF %d", IF)
       row = get_row_number(self.worksheet, self.column, IF)
-      self.logger.debug("get_patching: IF %d is in row %d", IF, row)
+      self.logger.debug("get_patching: IF %s is in row %s", IF, row)
       for item in ["Band", "Receiver", "Pol", "IF"]:
         value = self.get(item, row)
         if value == None:
-          self.logger.error("get_patching: no %s for row %d", item, row)
+          self.logger.error("get_patching: no %s for row %s", item, row)
         else:
           rx_chan[item] = value
       IF_channel[IF] = rx_chan
@@ -267,7 +279,6 @@ class DistributionAssembly(object):
     except TypeError:
       self.logger.error("get_inputs: device %s is not known", device)
       raise RuntimeError("device %s is not known; check capitalization." % device)
-    inputs = get_column(self.worksheet, device)[1:]
     self.logger.debug("get_inputs: Column '%s' values: %s", device, inputs)
     channels = {}
     for index in range(len(inputs)):
