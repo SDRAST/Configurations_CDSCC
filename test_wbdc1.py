@@ -5,7 +5,7 @@ from MonitorControl.Configurations.configCDSCC.K_4ch import \
   receiver as rx, \
   back_end_list as BE_list
 from MonitorControl.SDFITS import FITSfile
-from MonitorControl.config_test import *
+#from MonitorControl.config_test import *
 
 import pyfits
 

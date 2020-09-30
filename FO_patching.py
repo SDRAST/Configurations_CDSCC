@@ -114,7 +114,7 @@ class DistributionAssembly(object):
                       str(self.sheet_names))
     # last worksheet by date YEAR/DOY
     self.worksheet = compat.get_sheet_by_name(self.workbook, self.sheet_names[-1])
-    column_numbers = get_column_names(self.worksheet)
+    column_numbers = support.excel.get_column_names(self.worksheet)
     self.logger.debug("_open_patchpanel_spreadsheet: columns found in %s:",
                       self.sheet_names[-1])
     # find the current patching
@@ -125,7 +125,7 @@ class DistributionAssembly(object):
     self.current_patch()
     self.logger.debug("_open_patchpanel_spreadsheet: current patch is %s",
                       self.patchname)
-    self.column = get_column_id(self.worksheet, self.patchname)
+    self.column = support.excel.get_column_id(self.worksheet, self.patchname)
     self.logger.debug("_open_patchpanel_spreadsheet: active column is %s", 
                       self.column)
     
@@ -165,8 +165,8 @@ class DistributionAssembly(object):
     """
     Returns value for column name in the row, including merged cells
     """
-    column = get_column_id(self.worksheet, column_name)-OPENPYXL_INDEX
-    column_data = get_column(self.worksheet, column_name)
+    column = support.excel.get_column_id(self.worksheet, column_name)-OPENPYXL_INDEX
+    column_data = support.excel.get_column(self.worksheet, column_name)
     while row > 0:
       if compat.cell(self.worksheet, row=row, column=column).value:
         return compat.cell(self.worksheet, row=row, column=column).value
@@ -249,11 +249,11 @@ class DistributionAssembly(object):
       'ROACH2'      - GCPS spectrometer
     """
     try:
-      inputs = get_column(self.worksheet, device)[1:]
+      inputs = support.excel.get_column(self.worksheet, device)[1:]
     except TypeError:
       self.logger.error("get_signals: device %s is not known", device)
       raise RuntimeError("device %s is not known; check capitalization." % device)
-    inputs = get_column(self.worksheet, device)[1:]
+    inputs = support.excel.get_column(self.worksheet, device)[1:]
     self.logger.debug("get_signals: Column '%s' values: %s", device, inputs)
     sig_props = {}
     for index in range(len(inputs)):
@@ -275,7 +275,7 @@ class DistributionAssembly(object):
     """
     """
     try:
-      inputs = get_column(self.worksheet, device)[1:]
+      inputs = support.excel.get_column(self.worksheet, device)[1:]
     except TypeError:
       self.logger.error("get_inputs: device %s is not known", device)
       raise RuntimeError("device %s is not known; check capitalization." % device)
