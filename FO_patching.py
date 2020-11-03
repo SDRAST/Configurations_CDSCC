@@ -17,7 +17,7 @@ from openpyxl.reader.excel import InvalidFileException
 
 import DatesTimes as DT
 
-from support.excel import *
+import support.excel
 
 module_logger = logging.getLogger(__name__)
 
@@ -165,7 +165,8 @@ class DistributionAssembly(object):
     """
     Returns value for column name in the row, including merged cells
     """
-    column = support.excel.get_column_id(self.worksheet, column_name)-OPENPYXL_INDEX
+    column = support.excel.get_column_id(self.worksheet, column_name) \
+              - support.excel.OPENPYXL_INDEX
     column_data = support.excel.get_column(self.worksheet, column_name)
     while row > 0:
       if compat.cell(self.worksheet, row=row, column=column).value:
@@ -217,7 +218,7 @@ class DistributionAssembly(object):
     for IF in range(1,17):
       rx_chan = {}
       self.logger.debug("get_patching: checking IF %d", IF)
-      row = get_row_number(self.worksheet, self.column, IF)
+      row = support.excel.get_row_number(self.worksheet, self.column, IF)
       self.logger.debug("get_patching: IF %s is in row %s", IF, row)
       for item in ["Band", "Receiver", "Pol", "IF"]:
         value = self.get(item, row)
